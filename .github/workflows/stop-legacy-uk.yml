@@ -1,0 +1,25 @@
+name: Stop superseded whole-UK builder
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/stop-legacy-uk.yml]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Stop the superseded build and disable future whole-UK builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/39928542974" --jq '.status')
+          if [ "$status" != completed ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/39928542974/cancel"
+          fi
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/map-data.yml/disable"
+          echo 'Whole-UK-first builder disabled. Replaced by independent regional publication.' >> "$GITHUB_STEP_SUMMARY"
