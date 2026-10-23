@@ -10,6 +10,9 @@ There is no whole-UK archive build in this rollout.
 Each region has its own immutable map, source snapshot, mapped lanes/limits,
 places/search, warnings, feature/relation packs, signs and regional Valhalla graph.
 The verified catalog is published at `map-regions/catalog.json` in Releases.
+Large regions are automatically split across multiple immutable GitHub releases
+(maximum 900 map assets per release), with every file tagged and hash-verified
+before the shared catalog advances. Failed later shards never mark a region ready.
 Only regions listed there are available. Coverage remains explicitly **partial**;
 completing the extract list alone is not proof that every UK road was verified.
 

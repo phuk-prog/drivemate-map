@@ -271,15 +271,38 @@ def publish_region(github, region, out, tag, checkpoint, previous, directory):
                     inventories[old_tag] = github.inventory(old_tag)
                 publisher.verify_inventory(inventories[old_tag], {name: wanted}, old_tag)
                 reused[name] = wanted
-    expected_files = {name: reused.get(name) or publisher.metadata(path, tag) for name, path in files.items()}
+    # Each GitHub Release supports at most 1,000 assets. Large UK nations
+    # routinely exceed that, so allocate immutable regional shard tags before
+    # writing the manifest. Only the first shard holds manifest.json.
+    pending = {name: path for name, path in files.items() if name not in reused}
+    shard_limit = min(publisher.MAIN_FILES, publisher.ASSET_LIMIT - 1)
+    if shard_limit < 2:
+        raise ValueError('GitHub asset limit too small for regional manifest')
+    names = sorted(pending)
+    shard_groups = [names[i:i + shard_limit] for i in range(0, len(names), shard_limit)]
+    if not shard_groups:
+        shard_groups = [[]]
+    shards = []
+    expected_files = dict(reused)
+    for idx, group in enumerate(shard_groups):
+        shard_tag = tag if idx == 0 else f'{tag}-part{idx + 1:03d}'
+        publisher.checked_tag(shard_tag)
+        shard_files = {name: pending[name] for name in group}
+        shards.append((shard_tag, shard_files))
+        for name in group:
+            expected_files[name] = publisher.metadata(pending[name], shard_tag)
     manifest = {'schema': 1, 'coverage': 'partial', 'region': region, 'files': expected_files}
     manifest_path = Path(directory) / 'manifest.json'
     manifest_path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
-    pending = {name: path for name, path in files.items() if name not in reused}
-    pending['manifest.json'] = manifest_path
-    publisher.upload_immutable(github, tag, pending)
-    expected = {name: publisher.metadata(path, tag) for name, path in pending.items()}
-    publisher.verify_inventory(github.inventory(tag), expected, tag, exact=True)
+    if manifest_path.stat().st_size > 2 * 1024 * 1024:
+        raise ValueError('Regional manifest exceeds app download limit')
+    shards[0][1]['manifest.json'] = manifest_path
+    # An incomplete shard, checksum mismatch or upload failure never advances
+    # the live catalog. Reuse is allowed only for the SAME named region.
+    for shard_tag, shard_files in shards:
+        publisher.upload_immutable(github, shard_tag, shard_files)
+        expected = {name: publisher.metadata(path, shard_tag) for name, path in shard_files.items()}
+        publisher.verify_inventory(github.inventory(shard_tag), expected, shard_tag, exact=True)
     for old_tag in {entry['tag'] for entry in reused.values()}:
         publisher.verify_inventory(github.inventory(old_tag), {n: e for n, e in reused.items() if e['tag'] == old_tag}, old_tag)
     entry = {**copy.deepcopy(region), **checkpoint,

@@ -167,6 +167,59 @@ class ProgressiveRegionTests(unittest.TestCase):
                         {'content_sha256':'a'*64,'pipeline_sha256':'b'*64},catalog(),root)
                 promote.assert_not_called()
 
+    def test_large_region_is_sharded_and_catalog_only_promotes_after_all_uploads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); out=root/'out'; out.mkdir()
+            for name in ('drivemate-v1.pmtiles', 'regional-source.osm.pbf',
+                         'source-inventory.json', 'NOTICE.md', 'lanes-a.json',
+                         'lanes-b.json', 'limits-a.json', 'limits-b.json', 'roads.json'):
+                (out/name).write_text('verified-'+name)
+            (out/'region-quality.json').write_text(json.dumps({
+                'region':'stockport','errors':[],
+                'assets':{p.name:{'bytes':p.stat().st_size,'sha256':regions.publisher.digest(p)}
+                          for p in out.iterdir()}}))
+            github=fixtures.FakeGitHub()
+            label='map-data-region-stockport-shard-test'
+            with patch.object(regions.publisher,'ASSET_LIMIT',4), patch.object(
+                regions,'publish_catalog') as promote:
+                result=regions.publish_region(github,regions.INITIAL[0],out,label,
+                    {'content_sha256':'a'*64,'pipeline_sha256':'b'*64},catalog(),root)
+                promote.assert_called_once()
+            self.assertIn('stockport',result['regions'])
+            manifest=json.loads(github.files[label]['manifest.json'])
+            self.assertEqual(set(manifest['files']), set(p.name for p in out.iterdir()))
+            shard_tags={info['tag'] for info in manifest['files'].values()}
+            self.assertTrue(label in shard_tags)
+            self.assertGreater(len(shard_tags),1)
+            for shard_tag in shard_tags:
+                self.assertLessEqual(len(github.files[shard_tag]),4)
+            for name, metadata in manifest['files'].items():
+                self.assertEqual(regions.publisher.digest(out/name),metadata['sha256'])
+                self.assertEqual((out/name).read_bytes(),github.files[metadata['tag']][name])
+            self.assertEqual('manifest.json',next(
+                name for name in github.files[label] if name=='manifest.json'))
+
+    def test_later_shard_failure_cannot_promote_region_catalog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); out=root/'out'; out.mkdir()
+            for name in ('drivemate-v1.pmtiles', 'regional-source.osm.pbf',
+                         'source-inventory.json', 'NOTICE.md', 'lanes-a.json',
+                         'lanes-b.json', 'limits-a.json', 'limits-b.json'):
+                (out/name).write_text('verified-'+name)
+            (out/'region-quality.json').write_text(json.dumps({
+                'region':'stockport','errors':[],
+                'assets':{p.name:{'bytes':p.stat().st_size,'sha256':regions.publisher.digest(p)}
+                          for p in out.iterdir()}}))
+            github=fixtures.FakeGitHub()
+            tag='map-data-region-stockport-later-fail'
+            github.fail_upload=(tag+'-part002','limits-a.json')
+            with patch.object(regions.publisher,'ASSET_LIMIT',4), patch.object(
+                regions,'publish_catalog') as promote:
+                with self.assertRaises(fixtures.publisher.GitHubError):
+                    regions.publish_region(github,regions.INITIAL[0],out,tag,
+                        {'content_sha256':'a'*64,'pipeline_sha256':'b'*64},catalog(),root)
+                promote.assert_not_called()
+
     def test_changed_asset_after_validation_stops_before_any_remote_write(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);out=root/'out';out.mkdir()
