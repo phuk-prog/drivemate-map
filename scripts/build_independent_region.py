@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import sys
 
 import progressive_regions as regions
@@ -217,6 +218,10 @@ def main():
     (out / 'source-import-status.json').write_text(json.dumps(source_status, sort_keys=True, indent=2) + '\n')
     print(json.dumps({'supplementary_sources': [{'id': row['id'], 'status': row['status'], 'reason': row.get('reason'), 'detail': row.get('detail')} for row in source_status]}), flush=True)
     if os_names['status'] == 'imported':
+        # Preserve all selected official CSV fields for future map improvements.
+        with tarfile.open(out / 'os-open-names-regional.tar.gz', 'w:gz') as archive:
+            for csv_path in sorted(Path(os_names['directory']).glob('*.csv')):
+                archive.add(csv_path, arcname=csv_path.name, recursive=False)
         places_args += ['--osnames', str(os_names['directory'])]
         search_stats = search_offline.build(str(os_names['directory']), str(out / 'search-offline-uk.tsv.gz'))
     else:

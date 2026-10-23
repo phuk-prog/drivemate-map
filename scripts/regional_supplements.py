@@ -1,6 +1,6 @@
 """Bounded, optional OS Open Names import for one geographic region.
 
-Reads the remote ZIP central directory and selected 10 km grid members using
+Reads the remote ZIP central directory and selected 20 km grid members using
 HTTPS byte ranges. It never falls back to downloading the GB archive. Input
 records are filtered to the requested WGS84 bounding box before being written
 in the existing Open Names CSV/header layout used by places/search builders.
@@ -27,7 +27,8 @@ ATTRIBUTION = ('Contains OS data © Crown copyright and database rights; Contain
 ALLOWED_HOSTS = {'api.os.uk', 'downloads.os.uk', 'osdatahubdownloads.blob.core.windows.net',
                  'omseprd1stdstordownload.blob.core.windows.net'}
 MAX_TRANSFER = 32 * 1024 * 1024
-MAX_MEMBER = 12 * 1024 * 1024
+MAX_MEMBER = 12 * 1024 * 1024  # compressed member/range request bound
+MAX_UNCOMPRESSED_MEMBER = 64 * 1024 * 1024
 MAX_MEMBERS = 64
 DEFAULT_COLS = {'NAME1': 2, 'LOCAL_TYPE': 7, 'GEOMETRY_X': 8, 'GEOMETRY_Y': 9}
 
@@ -152,9 +153,11 @@ def grid_sheets(bounds):
     west, east = min(p[0] for p in points), max(p[0] for p in points)
     south, north = min(p[1] for p in points), max(p[1] for p in points)
     sheets = set()
-    for x in range(math.floor(west / 10000), math.floor(east / 10000) + 1):
-        for y in range(math.floor(south / 10000), math.floor(north / 10000) + 1):
-            code = grid_code(x * 10000, y * 10000)
+    for x in range(math.floor(west / 20000), math.floor(east / 20000) + 1):
+        for y in range(math.floor(south / 20000), math.floor(north / 20000) + 1):
+            # OS Open Names files are 20 km squares named by their southwest
+            # 10 km grid code: SJ88 contains SJ88, SJ89, SJ98 and SJ99.
+            code = grid_code(x * 20000, y * 20000)
             if code:
                 sheets.add(code)
     if not sheets or len(sheets) > MAX_MEMBERS:
@@ -183,7 +186,7 @@ def selected_members(archive, sheets):
     if len({PurePosixPath(i.filename).stem.upper() for i in names}) != len(names):
         raise SourceUnavailable('Duplicate OS sheet names')
     for info in [header, *names]:
-        if info.file_size > MAX_MEMBER or info.compress_size > MAX_MEMBER or info.flag_bits & 1:
+        if info.file_size > MAX_UNCOMPRESSED_MEMBER or info.compress_size > MAX_MEMBER or info.flag_bits & 1:
             raise SourceUnavailable('Oversized or encrypted regional OS member')
     return header, sorted(names, key=lambda x: x.filename)
 

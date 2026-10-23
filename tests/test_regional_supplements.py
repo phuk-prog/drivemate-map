@@ -23,7 +23,7 @@ class RegionalSupplementTests(unittest.TestCase):
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, 'w', zipfile.ZIP_DEFLATED) as z:
             z.writestr('Doc/OS_Open_Names_Header.csv', 'NAME1,LOCAL_TYPE,GEOMETRY_X,GEOMETRY_Y\n')
-            z.writestr('Data/SJ/SJ89.csv', row('Stockport', -2.15, 53.41) + row('Outside', 0, 51))
+            z.writestr('Data/SJ88.csv', row('Stockport', -2.15, 53.41) + row('Outside', 0, 51))
             z.writestr('Data/TQ/TQ38.csv', 'not downloaded\n' * 1000)
         return stream.getvalue()
 
@@ -39,8 +39,30 @@ class RegionalSupplementTests(unittest.TestCase):
     def test_grid_sheet_and_stockport_selection(self):
         self.assertEqual('SJ89', regional.grid_code(389000, 393000))
         self.assertEqual('SD34', regional.grid_code(334000, 444000))
-        self.assertIn('SJ89', regional.grid_sheets(self.bounds))
+        self.assertIn('SJ88', regional.grid_sheets(self.bounds))
         self.assertNotIn('TQ38', regional.grid_sheets(self.bounds))
+
+    def test_odd_10km_cell_uses_its_20km_parent_sheet(self):
+        from pyproj import Transformer
+        to_wgs = Transformer.from_crs('EPSG:27700', 'EPSG:4326', always_xy=True)
+        lon, lat = to_wgs.transform(389000, 393000)  # SJ89, inside SJ88's 20km file
+        sheets = regional.grid_sheets([lon - 0.001, lat - 0.001, lon + 0.001, lat + 0.001])
+        self.assertEqual({'SJ88'}, sheets)
+
+    def test_typical_stockport_24mb_member_is_allowed_with_small_compressed_input(self):
+        class Archive:
+            def infolist(self):
+                return [header, member]
+        header = zipfile.ZipInfo('Doc/OS_Open_Names_Header.csv')
+        header.file_size = 500
+        header.compress_size = 300
+        member = zipfile.ZipInfo('Data/SJ88.csv')
+        member.file_size = 24471702
+        member.compress_size = 1446182
+        self.assertEqual(member, regional.selected_members(Archive(), {'SJ88'})[1][0])
+        member.file_size = regional.MAX_UNCOMPRESSED_MEMBER + 1
+        with self.assertRaises(regional.SourceUnavailable):
+            regional.selected_members(Archive(), {'SJ88'})
 
     def test_range_reader_never_accepts_full_archive_fallback(self):
         data = self.archive()
@@ -64,11 +86,11 @@ class RegionalSupplementTests(unittest.TestCase):
         fetch, calls = self.transport(data)
         reader = regional.HTTPRangeReader(self.url, len(data), fetch)
         with tempfile.TemporaryDirectory() as tmp:
-            result = regional.extract_region(reader, self.bounds, tmp, sheets={'SJ89'})
+            result = regional.extract_region(reader, self.bounds, tmp, sheets={'SJ88'})
             self.assertEqual(1, result['records'])
-            self.assertEqual({'SJ89.csv', 'OS_Open_Names_Header.csv'}, {p.name for p in Path(tmp).iterdir()})
-            self.assertIn('Stockport', (Path(tmp) / 'SJ89.csv').read_text())
-            self.assertNotIn('Outside', (Path(tmp) / 'SJ89.csv').read_text())
+            self.assertEqual({'SJ88.csv', 'OS_Open_Names_Header.csv'}, {p.name for p in Path(tmp).iterdir()})
+            self.assertIn('Stockport', (Path(tmp) / 'SJ88.csv').read_text())
+            self.assertNotIn('Outside', (Path(tmp) / 'SJ88.csv').read_text())
         self.assertTrue(all(start is not None for _, start, end in calls))
 
     def test_public_api_import_reports_source_and_region(self):
