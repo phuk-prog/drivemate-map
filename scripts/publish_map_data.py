@@ -23,8 +23,9 @@ MAX_MANIFEST_ENTRIES = 5_000
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,150}')
 TAG = re.compile(r'map-data-[A-Za-z0-9][A-Za-z0-9._-]{0,100}')
-# releases this publisher only reads: the routing pieces (the daily check compares them with the map)
-READ_TAG = re.compile(r'routing-uk(-[A-Za-z0-9][A-Za-z0-9._-]{0,100})?')
+# Explicit auxiliary releases supported by the shared GitHub adapter.
+# Immutable map-generation tags still pass checked_tag separately.
+READ_TAG = re.compile(r'(?:map-regions|routing-uk(-[A-Za-z0-9][A-Za-z0-9._-]{0,100})?)')
 LICENSE_DIR = Path(__file__).resolve().parent.parent / 'licenses'
 LICENSE_ASSETS = ('LICENSE-ODbL.txt', 'LICENSE-CDLA-Permissive-2.0.txt', 'LICENSE-Apache-2.0.txt',
                   'NOTICE-Foursquare.txt', 'NOTICE.md')

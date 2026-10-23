@@ -60,6 +60,21 @@ class ProgressiveRegionTests(unittest.TestCase):
         for bounds in ([0,0,0,1], [0,0,float('nan'),1], [-200,0,2,1]):
             with self.assertRaises(ValueError): regions.checked_bounds(bounds)
 
+    def test_real_github_adapter_can_bootstrap_catalog_release(self):
+        github = regions.publisher.GitHub('owner/repo')
+        calls = []
+        def api(*args):
+            calls.append(args)
+            if args[0] == 'api':
+                raise regions.publisher.GitHubError('HTTP 404')
+            return ''
+        github.run = api
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(catalog(), regions.load_catalog(github,directory))
+        self.assertEqual(('api','repos/owner/repo/releases/tags/map-regions'),calls[0])
+        for invalid in ('map-regions/../x', 'map-regions-unknown', '--map-regions'):
+            with self.assertRaises(ValueError): github.release(invalid)
+
     def test_initial_missing_catalog_is_allowed_but_access_denied_is_not(self):
         class Missing:
             def __init__(self, code): self.code=code

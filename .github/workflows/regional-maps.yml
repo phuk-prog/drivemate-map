@@ -8,9 +8,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/regional-maps.yml
-      - scripts/progressive_regions.py
-      - scripts/build_independent_region.py
-      - scripts/regional_supplements.py
+      - scripts/**
       - schema/drivemate-map.yml
 permissions:
   contents: write
