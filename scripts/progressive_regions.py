@@ -333,6 +333,7 @@ def main():
     if region is None:
         print('All regional inputs unchanged; no downloads or publication required')
         return
+    print(f"Selected next verified map region: {region['id']}", flush=True)
     root = args.work / region['id']
     root.mkdir()
     (root / 'region.json').write_text(json.dumps(region))
