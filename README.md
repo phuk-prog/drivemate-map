@@ -1,10 +1,32 @@
 # DriveMate map data
 
-Open map data for the DriveMate navigation app, refreshed daily by
-[`.github/workflows/map-data.yml`](.github/workflows/map-data.yml). New builds publish
-immutable dated releases and a verified file manifest. The small `latest.json` asset on
-the [`map-data-uk` release](../../releases/tag/map-data-uk) advertises a generation only
-after all its assets have uploaded and their SHA-256 hashes and sizes match.
+Open map data for DriveMate, built **region first** by
+[regional-maps.yml](.github/workflows/regional-maps.yml). Stockport is published
+first, then Manchester, then the smallest available regional extracts ordered
+outwards. A successful publication automatically starts the next regional job.
+There is no whole-UK archive build in this rollout.
+
+Each region has its own immutable map, source snapshot, mapped lanes/limits,
+places/search, warnings, feature/relation packs, signs and regional Valhalla graph.
+The verified catalog is published at `map-regions/catalog.json` in Releases.
+Only regions listed there are available. Coverage remains explicitly **partial**;
+completing the extract list alone is not proof that every UK road was verified.
+
+Every day at **01:00 Europe/London**, GitHub checks the active regional source
+checksums, Overture release, OS distribution identity and builder identity. A
+changed upstream extract is downloaded regionally and compared using canonical
+local OSM content. Unchanged regional content is not rebuilt. Identical generated
+assets are reused by SHA-256 from earlier immutable releases of the same region.
+Existing regions are updated before further expansion. No change means no map
+upload. GitHub scheduling is best effort and may start later than the target time.
+
+The old `map-data.yml` whole-UK-first workflow is disabled. Its scripts and tests
+remain as historical format/compatibility references; it is not the active build.
+
+The tables below document recoverable formats. The regional `source-inventory.json`
+reports which sources were actually imported; availability is never inferred from
+this table. Legacy filenames ending `-uk` inside a regional manifest are still
+**region-scoped**, not claims of UK-wide contents.
 
 | File | What it is |
 |---|---|
@@ -95,17 +117,16 @@ No National Highways permanent speed-limit dataset is claimed.
 
 ## Daily publication and setup
 
-This repository is `phuk-prog/drivemate-map`; no app source is included.
-The map workflow checks and refreshes all source inputs daily at 01:00 Europe/London.
-Two UTC triggers and a tested guard account for British Summer Time. The first
-01:00 is used when clocks go back; on the spring day without 01:00, it runs at
-02:00. GitHub may delay scheduled jobs. Updates are built and uploaded automatically;
-identical supplementary assets can be reused by verified hash. Failed checks retain
-the previous selected generation. The first source upload starts the initial build.
+This public repository contains data-building utilities, not private app source.
+The new app reads the independent region catalog, selects available coverage by
+location and verifies the region manifest and map identity. Catalog entries can
+refer to older unchanged assets of the same region. A failed build or upload
+retains the previously selected region generation.
 
-The build includes a low-zoom national base and bounded regional PMTiles packages,
-with hashes, bounds and companion-data references. These are geographic tile regions;
-county selection and rectangle selection still require app UI support.
+Two UTC triggers plus a tested UK-time guard account for BST. Autumn uses the
+first 01:00; the spring day without 01:00 uses 02:00. Initial expansion continues
+automatically between daily checks, one region per job, until there is no more
+work. No job constructs a whole-UK PMTiles file.
 
 Required owner setup:
 
@@ -120,12 +141,14 @@ Required owner setup:
   **variable** `DMN_SOURCE_REPOSITORY` to the restored private repository and a
   narrowly scoped read-only **secret** `MAP_BUILD_SOURCE_TOKEN` for checkout.
   Its code is used on the runner and is not published in this repository.
-  Automatic DMN builds remain disabled until the private source is configured.
+  The legacy automatic DMN builder remains disabled until a region-aware private source is configured; the regional Valhalla graph is published as a separate capability.
 
-Route, restriction, speed-limit and search acceptance checks must pass in the same
-run before the map build. Full archive checks, regional coverage, source inventory,
-and exact-asset publication checks also run before publication. Published checksums
-establish integrity, not a successful on-device render or complete real-world data.
+The regional workflow runs the full source regression suite and generator self-checks.
+Before a region is published it verifies every generated map payload, checks detailed
+roads at declared Stockport/Manchester samples, tests routes from the regional graph,
+records source availability and binds validation to exact asset hashes. These checks
+establish archive integrity and sampled regional behaviour, not full on-device or
+complete real-world coverage certification.
 
 ## Additional information sources
 

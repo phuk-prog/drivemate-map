@@ -1,0 +1,340 @@
+"""Stockport-first independent region planning, change detection and publication.
+
+Never builds a whole-UK archive. Immutable regional generations are selected by
+one small catalog, promoted only after complete upload and integrity validation.
+"""
+import argparse
+import copy
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+from urllib.parse import urlsplit
+from urllib.request import urlopen
+
+import daily_source_probe
+import publish_map_data as publisher
+
+ROOT = Path(__file__).resolve().parents[1]
+CATALOG_TAG = 'map-regions'
+CATALOG_FILE = 'catalog.json'
+GM_SOURCE = 'https://download.geofabrik.de/europe/united-kingdom/england/greater-manchester-latest.osm.pbf'
+INITIAL = [
+    {'id': 'stockport', 'name': 'Stockport area', 'bounds': [-2.29, 53.30, -1.98, 53.47],
+     'source_url': GM_SOURCE, 'sample': [-2.1575, 53.4052], 'inland': True},
+    {'id': 'manchester', 'name': 'Manchester area', 'bounds': [-2.35, 53.36, -2.12, 53.56],
+     'source_url': GM_SOURCE, 'sample': [-2.2309, 53.4774], 'inland': True},
+]
+ID = re.compile(r'[a-z0-9][a-z0-9-]{0,70}\Z')
+SHA = re.compile(r'[a-f0-9]{64}\Z')
+
+
+def checked_bounds(bounds):
+    if (not isinstance(bounds, list) or len(bounds) != 4
+            or any(type(n) not in (int, float) or not math.isfinite(n) for n in bounds)
+            or not -180 <= bounds[0] < bounds[2] <= 180
+            or not -85 <= bounds[1] < bounds[3] <= 85):
+        raise ValueError('Invalid regional bounds')
+    return bounds
+
+
+def read_json_url(url, maximum=20_000_000):
+    if not url.startswith('https://'):
+        raise ValueError('HTTPS source required')
+    with urlopen(url, timeout=60) as response:
+        data = response.read(maximum + 1)
+    if len(data) > maximum:
+        raise ValueError('Source metadata too large')
+    return json.loads(data)
+
+
+def flatten_coordinates(geometry):
+    if not isinstance(geometry, dict) or geometry.get('type') not in ('Polygon', 'MultiPolygon'):
+        raise ValueError('Source extract lacks polygon geometry')
+    def walk(values):
+        if isinstance(values, list) and len(values) >= 2 and all(type(v) in (int, float) for v in values[:2]):
+            yield values[:2]
+        elif isinstance(values, list):
+            for value in values:
+                yield from walk(value)
+    points = list(walk(geometry.get('coordinates')))
+    if not points:
+        raise ValueError('Empty extract geometry')
+    return checked_bounds([min(p[0] for p in points), min(p[1] for p in points),
+                           max(p[0] for p in points), max(p[1] for p in points)])
+
+
+def expansion_plan(index):
+    """Choose smallest available UK extracts, sorted outwards from Stockport.
+
+    The upstream UK download is never selected. NI uses the smaller Ireland
+    extract clipped to a declared NI-area rectangle (which includes border land).
+    """
+    features = index.get('features') if isinstance(index, dict) else None
+    if not isinstance(features, list):
+        raise ValueError('Invalid Geofabrik index')
+    records = {f.get('properties', {}).get('id'): f for f in features if isinstance(f, dict)}
+    def within_uk(key):
+        seen = set()
+        while key in records and key not in seen:
+            if key == 'united-kingdom':
+                return True
+            seen.add(key)
+            key = records[key]['properties'].get('parent')
+        return False
+    uk = {k: f for k, f in records.items() if isinstance(k, str) and within_uk(k)
+          and k not in ('united-kingdom', 'bermuda', 'falklands')}
+    parents = {f['properties'].get('parent') for f in uk.values()}
+    choices = []
+    for key, feature in uk.items():
+        if key in parents:
+            continue
+        if not ID.fullmatch(key):
+            raise ValueError('Unsafe source region identifier')
+        props = feature['properties']
+        url = daily_source_probe.source_url(props.get('urls', {}).get('pbf'))
+        if '/united-kingdom/' not in url:
+            continue
+        b = flatten_coordinates(feature.get('geometry'))
+        choices.append({'id': key, 'name': props.get('name', key), 'bounds': b,
+                        'source_url': url, 'inland': key == 'greater-manchester'})
+    if not choices:
+        raise ValueError('No UK regional extracts discovered; refusing UK fallback')
+    choices.append({'id': 'northern-ireland-area', 'name': 'Northern Ireland and border area',
+                    'bounds': [-8.2, 54.0, -5.3, 55.5],
+                    'source_url': 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',
+                    'inland': False})
+    def distance(region):
+        w, s, e, n = region['bounds']
+        return (((w + e) / 2 + 2.15) * 0.6)**2 + ((s + n) / 2 - 53.4)**2
+    return copy.deepcopy(INITIAL) + sorted(choices, key=lambda r: (distance(r), r['id']))
+
+
+def validate_catalog(document):
+    if (not isinstance(document, dict) or document.get('schema') != 1
+            or document.get('coverage') != 'partial' or not isinstance(document.get('regions'), dict)
+            or len(document['regions']) > 256):
+        raise ValueError('Unsupported regional catalog')
+    for key, region in document['regions'].items():
+        if not ID.fullmatch(key) or region.get('id') != key:
+            raise ValueError('Unsafe catalog region')
+        checked_bounds(region.get('bounds'))
+        for field in ('content_sha256', 'pipeline_sha256'):
+            if not SHA.fullmatch(str(region.get(field, ''))):
+                raise ValueError('Missing regional content identity')
+        for field in ('manifest', 'map'):
+            asset = region.get(field)
+            if (not isinstance(asset, dict) or type(asset.get('bytes')) is not int
+                    or not 0 < asset['bytes'] <= 1_950_000_000
+                    or not SHA.fullmatch(str(asset.get('sha256', '')))
+                    or not str(asset.get('tag', '')).startswith('map-data-region-' + key + '-')):
+                raise ValueError('Invalid regional asset')
+            publisher.checked_tag(asset['tag'])
+        if region['map'].get('name') != 'drivemate-v1.pmtiles' or region['map'].get('layout') != 'drivemate-v1':
+            raise ValueError('Unsupported regional map layout')
+    return document
+
+
+def load_catalog(github, directory):
+    try:
+        assets = github.inventory(CATALOG_TAG)
+    except publisher.GitHubError as error:
+        if 'HTTP 404' in str(error):
+            return {'schema': 1, 'coverage': 'partial', 'regions': {}}
+        raise
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = github.download(CATALOG_TAG, CATALOG_FILE, directory)
+    if path.stat().st_size > 2_000_000:
+        raise ValueError('Regional catalog too large')
+    publisher.verify_inventory(assets, {CATALOG_FILE: publisher.metadata(path, CATALOG_TAG)}, CATALOG_TAG)
+    return validate_catalog(json.loads(path.read_text()))
+
+
+def choose_next(plan, catalog, signals, pipeline_sha, supplement_version):
+    """Update changed existing regions first; otherwise expand by exactly one region."""
+    regions = validate_catalog(catalog)['regions']
+    for region in plan:
+        old = regions.get(region['id'])
+        if old is not None and (old.get('observed_source_md5') != signals[region['source_url']]
+                or old['pipeline_sha256'] != pipeline_sha
+                or old.get('supplement_version') != supplement_version):
+            return region
+    return next((r for r in plan if r['id'] not in regions), None)
+
+
+def publish_catalog(github, previous, updated, directory):
+    validate_catalog(updated)
+    # Single workflow writer plus a remote identity check prevents overwriting
+    # a catalog changed outside the serialized pipeline.
+    live = load_catalog(github, Path(directory) / 'catalog-current')
+    if live != previous:
+        raise ValueError('Regional catalog changed during build; nothing promoted')
+    target = Path(directory) / CATALOG_FILE
+    target.write_text(json.dumps(updated, sort_keys=True, indent=2) + '\n')
+    github.ensure_release(CATALOG_TAG)
+    # The only mutable asset here is the catalog; dated map assets never change.
+    github.run('release', 'upload', CATALOG_TAG, str(target), '--repo', github.repo, '--clobber')
+    publisher.verify_inventory(github.inventory(CATALOG_TAG),
+                               {CATALOG_FILE: publisher.metadata(target, CATALOG_TAG)}, CATALOG_TAG)
+
+
+def publish_region(github, region, out, tag, checkpoint, previous, directory):
+    out = Path(out)
+    publisher.checked_tag(tag)
+    files = {}
+    for path in sorted(out.rglob('*')):
+        if path.is_symlink():
+            raise ValueError('Regional symlink prohibited')
+        if path.is_file():
+            publisher.checked_name(path.name)
+            if path.name in files or not 0 < path.stat().st_size <= 1_950_000_000:
+                raise ValueError('Duplicate, empty or oversized regional asset')
+            files[path.name] = path
+    required = {'drivemate-v1.pmtiles', 'region-quality.json', 'regional-source.osm.pbf',
+                'source-inventory.json', 'NOTICE.md'}
+    if not required <= files.keys():
+        raise ValueError('Incomplete regional generation')
+    quality = json.loads(files['region-quality.json'].read_text())
+    if quality.get('errors') != [] or quality.get('region') != region['id']:
+        raise ValueError('Regional validation did not pass')
+    if quality.get('assets') != {name: {'bytes': p.stat().st_size, 'sha256': publisher.digest(p)}
+                                 for name, p in files.items() if name != 'region-quality.json'}:
+        raise ValueError('Regional assets changed after validation')
+    reused = {}
+    prior = previous['regions'].get(region['id'])
+    if prior:
+        old_dir = Path(directory) / 'reuse'
+        old_dir.mkdir()
+        old_info = prior['manifest']
+        old_path = github.download(old_info['tag'], 'manifest.json', old_dir)
+        if old_path.stat().st_size != old_info['bytes'] or publisher.digest(old_path) != old_info['sha256']:
+            raise ValueError('Old regional manifest integrity failed')
+        old_files = json.loads(old_path.read_text()).get('files', {})
+        inventories = {}
+        for name, path in files.items():
+            old = old_files.get(name)
+            if not isinstance(old, dict):
+                continue
+            old_tag = old.get('tag', '')
+            if not old_tag.startswith('map-data-region-' + region['id'] + '-'):
+                raise ValueError('Cross-region immutable asset reuse prohibited')
+            wanted = publisher.metadata(path, old_tag)
+            if wanted == old:
+                if old_tag not in inventories:
+                    inventories[old_tag] = github.inventory(old_tag)
+                publisher.verify_inventory(inventories[old_tag], {name: wanted}, old_tag)
+                reused[name] = wanted
+    expected_files = {name: reused.get(name) or publisher.metadata(path, tag) for name, path in files.items()}
+    manifest = {'schema': 1, 'coverage': 'partial', 'region': region, 'files': expected_files}
+    manifest_path = Path(directory) / 'manifest.json'
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
+    pending = {name: path for name, path in files.items() if name not in reused}
+    pending['manifest.json'] = manifest_path
+    publisher.upload_immutable(github, tag, pending)
+    expected = {name: publisher.metadata(path, tag) for name, path in pending.items()}
+    publisher.verify_inventory(github.inventory(tag), expected, tag, exact=True)
+    for old_tag in {entry['tag'] for entry in reused.values()}:
+        publisher.verify_inventory(github.inventory(old_tag), {n: e for n, e in reused.items() if e['tag'] == old_tag}, old_tag)
+    entry = {**copy.deepcopy(region), **checkpoint,
+             'published_utc': datetime.now(timezone.utc).isoformat(),
+             'manifest': publisher.metadata(manifest_path, tag),
+             'map': {**expected_files['drivemate-v1.pmtiles'], 'name': 'drivemate-v1.pmtiles', 'layout': 'drivemate-v1'}}
+    updated = copy.deepcopy(previous)
+    updated['regions'][region['id']] = entry
+    publish_catalog(github, previous, updated, directory)
+    return updated
+
+
+def run(*args, **kwargs):
+    subprocess.run([str(x) for x in args], check=True, **kwargs)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--repo', required=True)
+    parser.add_argument('--work', type=Path, default=Path('work/regional'))
+    args = parser.parse_args()
+    args.work.mkdir(parents=True, exist_ok=True)
+    github = publisher.GitHub(args.repo)
+    index = read_json_url('https://download.geofabrik.de/index-v1.json')
+    plan = expansion_plan(index)
+    catalog = load_catalog(github, args.work / 'previous')
+    fingerprint = daily_source_probe.pipeline_fingerprint(ROOT, includes=('.github/workflows/regional-maps.yml',))['pipeline_sha256']
+    release = subprocess.run(['overturemaps', 'releases', 'latest'], capture_output=True, text=True)
+    overture_version = release.stdout.strip().splitlines()[-1] if release.returncode == 0 and release.stdout.strip() else 'unknown'
+    version = overture_version
+    if not re.fullmatch(r'20\d\d-\d\d-\d\d\.\d+', version):
+        version = 'unknown'
+    overture_version = version
+    # Supplementary source releases are independent of OSM changes. Include the
+    # official OS distribution digest/name in daily change detection.
+    import regional_supplements
+    try:
+        listing = read_json_url(regional_supplements.API, maximum=1_000_000)
+        os_version = [{k: item.get(k) for k in ('fileName', 'md5', 'size')} for item in listing]
+    except Exception:
+        os_version = 'unavailable'
+    version = json.dumps({'overture': overture_version, 'os-open-names': os_version}, sort_keys=True)
+    active = {r['source_url'] for r in plan if r['id'] in catalog['regions']}
+    next_unbuilt = next((r for r in plan if r['id'] not in catalog['regions']), None)
+    if next_unbuilt:
+        active.add(next_unbuilt['source_url'])
+    signals = {}
+    for url in sorted(active):
+        with urlopen(url + '.md5', timeout=40) as response:
+            value = response.read(4097).decode()
+        signals[url] = daily_source_probe.parse_signal(value, url)['value']
+    # choose_next only consults signals for existing regions and the chosen new one.
+    region = choose_next(plan, catalog, signals, fingerprint, version)
+    if region is None:
+        print('All regional inputs unchanged; no downloads or publication required')
+        return
+    root = args.work / region['id']
+    root.mkdir()
+    (root / 'region.json').write_text(json.dumps(region))
+    source = args.work / 'source.osm.pbf'
+    run('curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
+        '--retry', '2', '--max-time', '1200', '--output', source, region['source_url'])
+    # Verify observed checksum before trusting the source or clipping any region.
+    digest = hashlib.md5(usedforsecurity=False)
+    with source.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    if digest.hexdigest() != signals[region['source_url']]:
+        raise ValueError('Regional upstream source changed during download; no publication')
+    clipped = root / 'regional-source.osm.pbf'
+    run('osmium', 'extract', '-b', ','.join(map(str, region['bounds'])), '-s', 'complete_ways',
+        source, '-o', clipped, '--overwrite')
+    source.unlink()
+    canonical = root / 'source.opl'
+    run('osmium', 'cat', clipped, '-f', 'opl,add_metadata=false', '-o', canonical, '--overwrite')
+    content = publisher.digest(canonical)
+    canonical.unlink()
+    checkpoint = {'content_sha256': content, 'pipeline_sha256': fingerprint,
+                  'observed_source_md5': signals[region['source_url']], 'supplement_version': version}
+    prior = catalog['regions'].get(region['id'])
+    if prior and prior['content_sha256'] == content and prior['pipeline_sha256'] == fingerprint and prior.get('supplement_version') == version:
+        updated = copy.deepcopy(catalog)
+        updated['regions'][region['id']]['observed_source_md5'] = signals[region['source_url']]
+        publish_catalog(github, catalog, updated, root)
+        print('Regional road content unchanged; only upstream observation advanced')
+    else:
+        run(sys.executable, ROOT / 'scripts/build_independent_region.py', '--region', root / 'region.json',
+            '--source', clipped, '--out', root / 'out', '--work', root / 'build', '--overture-release', overture_version)
+        tag = f"map-data-region-{region['id']}-r{os.environ['GITHUB_RUN_ID']}-a{os.environ['GITHUB_RUN_ATTEMPT']}"
+        publish_region(github, region, root / 'out', tag, checkpoint, catalog, root)
+        print('Published independent region: ' + region['id'])
+    # Deliberate workflow_dispatch starts the next serialized regional check/build.
+    # Unlike token pushes, dispatches can start a follow-on Actions run.
+    run('gh', 'workflow', 'run', 'regional-maps.yml', '--repo', args.repo, '--ref', 'main')
+
+
+if __name__ == '__main__':
+    main()
