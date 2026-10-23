@@ -2,7 +2,8 @@
 
 Open map data for DriveMate, built **region first** by
 [regional-maps.yml](.github/workflows/regional-maps.yml). Stockport is published
-first, then Manchester, then the smallest available regional extracts ordered
+first, then Manchester, then Greater Manchester, Wales, Scotland and Northern
+Ireland, followed by the smallest available English regional extracts ordered
 outwards. A successful publication automatically starts the next regional job.
 There is no whole-UK archive build in this rollout.
 
@@ -17,8 +18,13 @@ checksums, Overture release, OS distribution identity and builder identity. A
 changed upstream extract is downloaded regionally and compared using canonical
 local OSM content. Unchanged regional content is not rebuilt. Identical generated
 assets are reused by SHA-256 from earlier immutable releases of the same region.
-Existing regions are updated before further expansion. No change means no map
-upload. GitHub scheduling is best effort and may start later than the target time.
+During initial expansion, automatic follow-on runs prioritise missing regions
+instead of repeatedly downloading checksums for every already-published region.
+Scheduled daily runs still check the published regions for source changes and
+process the first required update before expanding. Network checksum failures
+are retried with backoff; a failed checksum never results in publication.
+Once all regions are published, follow-on runs check existing sources for updates.
+No change means no map upload. GitHub scheduling is best effort and may start later than the target time.
 
 The old `map-data.yml` whole-UK-first workflow is disabled. Its scripts and tests
 remain as historical format/compatibility references; it is not the active build.

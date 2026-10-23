@@ -15,6 +15,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
@@ -113,7 +115,13 @@ def expansion_plan(index):
     def distance(region):
         w, s, e, n = region['bounds']
         return (((w + e) / 2 + 2.15) * 0.6)**2 + ((s + n) / 2 - 53.4)**2
-    return copy.deepcopy(INITIAL) + sorted(choices, key=lambda r: (distance(r), r['id']))
+    # Establish coverage in all four UK nations early; then expand through the
+    # smallest source regions near Manchester. These are still only source
+    # footprints, not claims of verified road-by-road national coverage.
+    nation_priority = {'greater-manchester': 0, 'wales': 1, 'scotland': 2,
+                       'northern-ireland-area': 3}
+    return copy.deepcopy(INITIAL) + sorted(
+        choices, key=lambda r: (nation_priority.get(r['id'], 4), distance(r), r['id']))
 
 
 def validate_catalog(document):
@@ -155,6 +163,38 @@ def load_catalog(github, directory):
         raise ValueError('Regional catalog too large')
     publisher.verify_inventory(assets, {CATALOG_FILE: publisher.metadata(path, CATALOG_TAG)}, CATALOG_TAG)
     return validate_catalog(json.loads(path.read_text()))
+
+
+def read_source_signal(url, *, attempts=4, opener=None, sleeper=None):
+    """Bounded retries for transient Geofabrik failures; never invent a checksum."""
+    daily_source_probe.source_url(url)
+    if type(attempts) is not int or not 1 <= attempts <= 6:
+        raise ValueError('Invalid checksum retry count')
+    opener = opener or urlopen
+    sleeper = sleeper or time.sleep
+    for attempt in range(attempts):
+        try:
+            with opener(url + '.md5', timeout=40) as response:
+                value = response.read(4097).decode('ascii')
+            return daily_source_probe.parse_signal(value, url)['value']
+        except (OSError, TimeoutError) as exc:
+            if isinstance(exc, HTTPError) and exc.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            if attempt == attempts - 1:
+                raise RuntimeError('Geofabrik checksum unavailable after retries: ' + url) from exc
+            sleeper(min(2 ** attempt, 8))
+
+
+def select_sources(plan, catalog, event_name):
+    """Prioritise the next missing extract; daily schedules still check old maps."""
+    published = catalog['regions']
+    next_unbuilt = next((r for r in plan if r['id'] not in published), None)
+    if next_unbuilt and event_name != 'schedule':
+        return {next_unbuilt['source_url']}, next_unbuilt
+    active = {r['source_url'] for r in plan if r['id'] in published}
+    if next_unbuilt:
+        active.add(next_unbuilt['source_url'])
+    return active, None
 
 
 def choose_next(plan, catalog, signals, pipeline_sha, supplement_version):
@@ -282,17 +322,14 @@ def main():
     except Exception:
         os_version = 'unavailable'
     version = json.dumps({'overture': overture_version, 'os-open-names': os_version}, sort_keys=True)
-    active = {r['source_url'] for r in plan if r['id'] in catalog['regions']}
-    next_unbuilt = next((r for r in plan if r['id'] not in catalog['regions']), None)
-    if next_unbuilt:
-        active.add(next_unbuilt['source_url'])
-    signals = {}
-    for url in sorted(active):
-        with urlopen(url + '.md5', timeout=40) as response:
-            value = response.read(4097).decode()
-        signals[url] = daily_source_probe.parse_signal(value, url)['value']
-    # choose_next only consults signals for existing regions and the chosen new one.
-    region = choose_next(plan, catalog, signals, fingerprint, version)
+    active, next_unbuilt = select_sources(plan, catalog, os.environ.get('GITHUB_EVENT_NAME', 'workflow_dispatch'))
+    print(f"Published map regions: {len(catalog['regions'])} of {len(plan)} planned; "
+          f"checking {len(active)} distinct source extracts", flush=True)
+    # During rollout a manual/push/auto-dispatched run only checks the NEXT
+    # unbuilt source; one failing old-source endpoint cannot stop expansion.
+    # Scheduled daily runs additionally inspect existing map change signals.
+    signals = {url: read_source_signal(url) for url in sorted(active)}
+    region = next_unbuilt or choose_next(plan, catalog, signals, fingerprint, version)
     if region is None:
         print('All regional inputs unchanged; no downloads or publication required')
         return
@@ -301,7 +338,9 @@ def main():
     (root / 'region.json').write_text(json.dumps(region))
     source = args.work / 'source.osm.pbf'
     run('curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
-        '--retry', '2', '--max-time', '1200', '--output', source, region['source_url'])
+        '--retry', '5', '--retry-all-errors', '--retry-delay', '4',
+        '--connect-timeout', '30', '--max-time', '1800',
+        '--output', source, region['source_url'])
     # Verify observed checksum before trusting the source or clipping any region.
     digest = hashlib.md5(usedforsecurity=False)
     with source.open('rb') as stream:
