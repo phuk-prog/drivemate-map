@@ -22,7 +22,10 @@ API = 'https://api.os.uk/downloads/v1/products/OpenNames/downloads?area=GB&forma
 ATTRIBUTION = ('Contains OS data © Crown copyright and database rights; Contains Royal Mail data '
                '© Royal Mail copyright and database right; Contains National Statistics data '
                '© Crown copyright and database right')
-ALLOWED_HOSTS = {'api.os.uk', 'downloads.os.uk', 'osdatahubdownloads.blob.core.windows.net'}
+# Exact official redirect host observed from the public OS API on 2026-10-23.
+# Never trust an arbitrary Azure blob suffix.
+ALLOWED_HOSTS = {'api.os.uk', 'downloads.os.uk', 'osdatahubdownloads.blob.core.windows.net',
+                 'omseprd1stdstordownload.blob.core.windows.net'}
 MAX_TRANSFER = 32 * 1024 * 1024
 MAX_MEMBER = 12 * 1024 * 1024
 MAX_MEMBERS = 64

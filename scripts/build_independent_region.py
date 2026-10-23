@@ -55,6 +55,18 @@ def geojson_features(path):
                 yield feature
 
 
+def write_places_input(source, destination):
+    # The POI merger accepts point/area geometry; road lines remain in the
+    # full feature pack and fallback street search, never coerced to polygons.
+    count = 0
+    with Path(destination).open('w', encoding='utf-8') as stream:
+        for feature in geojson_features(source):
+            if (feature.get('geometry') or {}).get('type') in ('Point', 'Polygon', 'MultiPolygon'):
+                stream.write(json.dumps(feature) + '\n')
+                count += 1
+    return count
+
+
 def osm_search(geojson, output, bounds):
     """Fallback OSM search; retains mapped addresses/postcodes, makes no completeness claim."""
     lines = set()
@@ -173,7 +185,9 @@ def main():
     zone_source = filter_export(source, work, 'zones', ['r/boundary=low_emission_zone', 'w/boundary=low_emission_zone'], 'polygon')
     (out / 'charge-zones-uk.json').write_text(json.dumps(zones.build(str(zone_source), [], None)))
     # Only this region's Overture places are downloaded, never the UK dataset.
-    places_args = [str(out / 'places'), '--osm', str(everything), '--osm-addresses', str(everything)]
+    place_features = work / 'place-features.geojsonseq'
+    write_places_input(everything, place_features)
+    places_args = [str(out / 'places'), '--osm', str(place_features), '--osm-addresses', str(place_features)]
     overture = work / 'places.parquet'
     overture_command = ['overturemaps', 'download', '--bbox=' + ','.join(map(str, bounds)),
                         '-f', 'geoparquet', '--type=place', '-o', str(overture)]

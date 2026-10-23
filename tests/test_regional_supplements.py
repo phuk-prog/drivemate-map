@@ -120,6 +120,18 @@ class RegionalSupplementTests(unittest.TestCase):
         with zipfile.ZipFile(raw) as archive, self.assertRaises(regional.SourceUnavailable):
             regional.selected_members(archive, {'SJ89'})
 
+    def test_official_os_redirect_host_allowed_but_lookalikes_rejected(self):
+        official = 'https://omseprd1stdstordownload.blob.core.windows.net/downloads/OpenNames.zip'
+        self.assertEqual(official, regional.approved_url(official))
+        for url in (
+            'https://omseprd1stdstordownload.blob.core.windows.net.evil.example/archive.zip',
+            'https://omseprd1stdstordownload-evil.blob.core.windows.net/archive.zip',
+            'https://anotheraccount.blob.core.windows.net/archive.zip',
+            'https://omseprd1stdstordownload.blob.core.windows.net@evil.example/archive.zip',
+        ):
+            with self.assertRaises(regional.SourceUnavailable):
+                regional.approved_url(url)
+
     def test_arbitrary_host_or_large_region_rejected(self):
         for url in ('http://api.os.uk/example', 'https://example.com/test', 'https://api.os.uk@evil.example/file'):
             with self.assertRaises(regional.SourceUnavailable):
