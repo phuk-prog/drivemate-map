@@ -1,0 +1,40 @@
+name: DMN road pieces check (UK)
+
+# Test 1.2 part A (owner, 18 Oct 2026): the road pieces phones download now, checked as the phone
+# gets them. Every piece the live index (dmn-uk.json) lists must be in the release it names, the
+# size and SHA-256 the index gives, and read completely (scripts/dmn_pack_check.py). Weekly, after
+# the DMN road pieces build.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 15 * * 1" # Mondays, after dmn-pack.yml
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  check:
+    if: vars.DMN_SOURCE_REPOSITORY != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Live index and its pieces
+        run: |
+          set -euo pipefail
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -O dmn-uk.json
+          rel=$(jq -r '.release // "dmn-uk"' dmn-uk.json)
+          echo "Pieces from release $rel" >> "$GITHUB_STEP_SUMMARY"
+          gh release download "$rel" -R "$GITHUB_REPOSITORY" -p 'dmn-*.dmnpack' -D pieces
+          cp dmn-uk.json pieces/
+      - name: Check every piece
+        run: |
+          set -o pipefail
+          python3 scripts/dmn_pack_check.py check pieces | tee -a "$GITHUB_STEP_SUMMARY"

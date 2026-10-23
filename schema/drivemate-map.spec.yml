@@ -1,0 +1,78 @@
+# Checks for our own map layout (test 2.17): java -jar planetiler.jar verify schema/drivemate-map.yml
+examples:
+  - name: charging station operator and reference preserved when unnamed
+    input: { source: osm, geometry: point, tags: { amenity: charging_station, operator: Alfen, ref: GB-123 } }
+    output: { layer: pois, tags: { kind: charging, name: 'Alfen GB-123' } }
+  - name: town name available before street zoom
+    input: { source: osm, geometry: point, tags: { place: town, name: Stockport } }
+    output: { layer: places, at_zoom: 8, tags: { kind: town, name: Stockport } }
+  - name: motorway with its number, blue sign
+    input: { source: osm, geometry: line, tags: { highway: motorway, ref: M60, name: Manchester Outer Ring Road } }
+    output: { layer: roads, min_zoom: 4, tags: { kind: motorway, ref: M60, shield: blue, name: Manchester Outer Ring Road } }
+  - name: slip road drawn as its road, marked as a link
+    input: { source: osm, geometry: line, tags: { highway: motorway_link } }
+    output: { layer: roads, min_zoom: 9, tags: { kind: motorway, link: true } }
+  - name: primary route (trunk) green sign
+    input: { source: osm, geometry: line, tags: { highway: trunk, ref: A34 } }
+    output: { layer: roads, min_zoom: 5, tags: { kind: trunk, ref: A34, shield: green } }
+  - name: other A road white sign
+    input: { source: osm, geometry: line, tags: { highway: primary, ref: A6 } }
+    output: { layer: roads, min_zoom: 7, tags: { kind: primary, ref: A6, shield: white } }
+  - name: B road has no sign
+    input: { source: osm, geometry: line, tags: { highway: secondary, ref: B5095, name: Ack Lane } }
+    output: { layer: roads, min_zoom: 9, tags: { kind: secondary, name: Ack Lane } }
+  - name: residential street is minor
+    input: { source: osm, geometry: line, tags: { highway: residential, name: Ashfield Road } }
+    output: { layer: roads, min_zoom: 12, tags: { kind: minor, name: Ashfield Road } }
+  - name: driveway only close in
+    input: { source: osm, geometry: line, tags: { highway: service, service: driveway } }
+    output: { layer: roads, min_zoom: 14, tags: { kind: service } }
+  - name: pedestrian area left out
+    input: { source: osm, geometry: line, tags: { highway: service, area: 'yes' } }
+    output: []
+  - name: footpath left out (owner, 18 Oct 2026)
+    input: { source: osm, geometry: line, tags: { highway: footway } }
+    output: []
+  - name: ferry
+    input: { source: osm, geometry: line, tags: { route: ferry, name: Isle of Wight ferry } }
+    output: { layer: roads, min_zoom: 7, tags: { kind: ferry } }
+  - name: road being built
+    input: { source: osm, geometry: line, tags: { highway: construction, construction: primary } }
+    output: { layer: roads, min_zoom: 13, tags: { kind: construction } }
+  - name: building with storeys
+    input: { source: osm, geometry: polygon, tags: { building: 'yes', building:levels: '4' } }
+    output: { layer: buildings, min_zoom: 14, tags: { height: 14.64 } }
+  - name: building with a height in metres
+    input: { source: osm, geometry: polygon, tags: { building: 'yes', height: '12 m' } }
+    output: { layer: buildings, tags: { height: 12.0 } }
+  - name: building with nothing mapped is low
+    input: { source: osm, geometry: polygon, tags: { building: 'yes' } }
+    output: { layer: buildings, tags: { height: 5.0 } }
+  - name: town
+    input: { source: osm, geometry: point, tags: { place: town, name: Stockport, population: '136082' } }
+    output: { layer: places, min_zoom: 7, tags: { kind: town, name: Stockport, population: 136082 } }
+  - name: unnamed place left out
+    input: { source: osm, geometry: point, tags: { place: village } }
+    output: []
+  - name: fuel station named by its brand
+    input: { source: osm, geometry: point, tags: { amenity: fuel, brand: Shell } }
+    output: { layer: pois, min_zoom: 14, tags: { kind: fuel, name: Shell } }
+  - name: car park area as a point
+    input: { source: osm, geometry: polygon, tags: { amenity: parking, name: Merseyway car park } }
+    output: { layer: pois, geometry: point, tags: { kind: parking, name: Merseyway car park } }
+  - name: unnamed car park left out
+    input: { source: osm, geometry: point, tags: { amenity: parking } }
+    output: []
+  - name: shop left out (owner, 18 Oct 2026)
+    input: { source: osm, geometry: point, tags: { shop: supermarket, name: Tesco } }
+    output: []
+  - name: wood
+    input: { source: osm, geometry: polygon, tags: { landuse: forest } }
+    output: { layer: land, min_zoom: 9, tags: { kind: wood } }
+  - name: private garden left out
+    input: { source: osm, geometry: polygon, tags: { leisure: garden } }
+    output: []
+  - name: lake
+    input: { source: osm, geometry: polygon, tags: { natural: water } }
+    output: { layer: water, min_zoom: 6 }
+

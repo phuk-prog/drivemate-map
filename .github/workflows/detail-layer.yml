@@ -1,0 +1,86 @@
+name: Road furniture and signs layer (test 2.14)
+
+# Owner, 18 Oct 2026 (plan test 2.14: all speed signs, road signs and more on the map): every traffic light,
+# stop and give-way, crossing, speed camera, level crossing, barrier, speed bump, speed-limit sign (with its
+# number), motorway junction number and other road sign in DriveMate's own OpenStreetMap snapshot, as a small
+# map file (scripts/detail_layer.py, tippecanoe). Published like the road pieces: a dated release, then the
+# pointer map-detail-uk/detail.json switched last. Not yet used by the app; the map style draws it.
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Build our own map data]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: detail-layer
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq >/dev/null
+          sudo apt-get install -y -qq osmium-tool >/dev/null
+          if ! sudo apt-get install -y -qq tippecanoe >/dev/null 2>&1; then
+            sudo apt-get install -y -qq build-essential libsqlite3-dev zlib1g-dev >/dev/null
+            git clone -q --depth 1 --branch 2.53.0 https://github.com/felt/tippecanoe /tmp/tippecanoe
+            make -s -C /tmp/tippecanoe -j4 && sudo make -s -C /tmp/tippecanoe install
+          fi
+          tippecanoe --version
+      - name: DriveMate's own OSM snapshot
+        run: |
+          set -euo pipefail
+          tag=$(gh release download map-data-uk -R "$GITHUB_REPOSITORY" -p latest.json -O - | jq -r .extra_tag)
+          echo "SNAPSHOT=$tag" >> "$GITHUB_ENV"
+          mkdir -p src
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'osm-source*' -D src
+          python3 scripts/osm_source_snapshot.py verify src
+          cat $(ls src/osm-source.part* | sort) > uk.osm.pbf && rm -rf src
+      - name: Signs and furniture
+        run: |
+          set -euo pipefail
+          osmium tags-filter uk.osm.pbf n/highway=traffic_signals,stop,give_way,crossing,speed_camera,mini_roundabout,motorway_junction,turning_circle,turning_loop,passing_place,speed_display \
+            n/traffic_sign n/railway=level_crossing,crossing n/traffic_calming n/barrier n/enforcement \
+            -o signs.osm.pbf --overwrite
+          rm uk.osm.pbf
+          osmium export signs.osm.pbf -f geojsonseq -o signs.geojsonseq --overwrite --geometry-types=point
+          python3 scripts/detail_layer.py signs.geojsonseq detail.geojsonseq | tee counts.txt
+          { echo "## Road furniture and signs (test 2.14), snapshot $SNAPSHOT"; echo; echo '```'; cat counts.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          tippecanoe -q -o drivemate-detail.pmtiles -l detail -Z12 -z14 -r1 --no-feature-limit --no-tile-size-limit \
+            --attribution '© OpenStreetMap contributors, ODbL 1.0' detail.geojsonseq
+          ls -l drivemate-detail.pmtiles
+      - name: Publish (dated release, pointer last)
+        run: |
+          set -euo pipefail
+          rel="map-detail-uk-$(date -u +%Y%m%d)-${{ github.run_number }}"
+          gh release create "$rel" -R "$GITHUB_REPOSITORY" --latest=false --title "Map detail (UK) $rel" \
+            --notes "Road furniture and signs for the DriveMate map (© OpenStreetMap contributors, ODbL 1.0)." drivemate-detail.pmtiles
+          size=$(stat -c%s drivemate-detail.pmtiles); sum=$(sha256sum drivemate-detail.pmtiles | cut -d' ' -f1)
+          jq -n --arg rel "$rel" --arg src "$SNAPSHOT" --argjson size "$size" --arg sum "$sum" \
+            '{schema:1, release:$rel, file:"drivemate-detail.pmtiles", bytes:$size, sha256:$sum, source:("OSM snapshot " + $src),
+              url:("https://github.com/\($ENV.GITHUB_REPOSITORY)/releases/download/" + $rel + "/drivemate-detail.pmtiles"),
+              attribution:"© OpenStreetMap contributors, ODbL 1.0"}' > detail.json
+          gh release view map-detail-uk -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create map-detail-uk -R "$GITHUB_REPOSITORY" --latest=false --title "Map detail (UK)" \
+              --notes "Pointer to the current road furniture and signs layer (detail.json)."
+          # GitHub sometimes answers a finished upload with a timeout (504): retry, then check it is there
+          for i in 1 2 3; do gh release upload map-detail-uk -R "$GITHUB_REPOSITORY" --clobber detail.json && break || sleep 15; done
+          curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/download/map-detail-uk/detail.json" | jq -e --arg rel "$rel" '.release == $rel' >/dev/null
+          echo "Published $rel ($size bytes)" >> "$GITHUB_STEP_SUMMARY"
+          # keep the 3 newest dated releases
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name' | grep -E '^map-detail-uk-[0-9]{8}-[0-9]+$' \
+            | sort -t- -k4,4nr -k5,5nr | tail -n +4 | while read -r old; do gh release delete "$old" -R "$GITHUB_REPOSITORY" --cleanup-tag -y; done

@@ -1,0 +1,252 @@
+name: Own map layout, bends and colours (tests 2.17-2.19)
+
+# Candidate evidence only. Never publish or change the live map pointer here.
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/own-map-layout]
+    paths:
+      - .github/workflows/layout-check.yml
+      - schema/drivemate-map*.yml
+      - scripts/layout_compare.py
+      - scripts/check_road_shapes.py
+      - tests/test_road_shapes.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: own-map-layout-comparison
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  PLANETILER_VERSION: '0.10.1'
+  PLANETILER_SHA256: 5e5e7d8c4fc89b4573cc9109d0a543c3c2c798b2bcde7c3dcd2214031ee59c29
+
+jobs:
+  compare:
+    runs-on: ubuntu-22.04 # Matches the headless MapLibre Native 6.0.0 runtime
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq >/dev/null
+          sudo apt-get install -y -qq osmium-tool >/dev/null
+          python3 -m pip install shapely==2.2.0 pyproj==3.8.0 PyYAML==6.0.3 pmtiles==3.4.1 mapbox-vector-tile==2.2.0
+          mkdir -p work/meta work/old work/snapshot work/sources
+          curl -fsSL --retry 3 -o work/planetiler.jar "https://github.com/onthegomap/planetiler/releases/download/v${PLANETILER_VERSION}/planetiler.jar"
+          printf '%s  %s\n' "$PLANETILER_SHA256" work/planetiler.jar | sha256sum --check --strict
+      - name: Unit tests before the UK build
+        run: python3 -m unittest discover -s tests -v
+      - name: Check the layout examples before the UK build
+        run: |
+          set -euo pipefail
+          java -jar work/planetiler.jar verify schema/drivemate-map.yml 2>&1 | tee work/schema.log
+          sed 's/\x1b\[[0-9;]*m//g' work/schema.log > work/schema.txt
+          grep -Eq '[1-9][0-9]* passed' work/schema.txt
+          ! grep -Eq '[1-9][0-9]* failed' work/schema.txt
+      - name: Pin the published map and its own verified OSM snapshot
+        env:
+          PYTHONPATH: scripts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+          import publish_map_data as pub
+          import osm_source_snapshot as snapshot
+
+          github = pub.GitHub(os.environ['GITHUB_REPOSITORY'])
+          meta = Path('work/meta')
+          pointer = json.loads(github.download(pub.LEGACY, 'latest.json', meta).read_text())
+          if pointer.get('schema') != 1:
+              raise ValueError('Unsupported published pointer')
+          tag = pub.checked_tag(pointer['manifest_tag'])
+          manifest_path = github.download(tag, 'manifest.json', meta)
+          if pub.digest(manifest_path) != pointer['manifest_sha256']:
+              raise ValueError('Published manifest checksum mismatch')
+          manifest = json.loads(manifest_path.read_text())
+          if manifest.get('schema') != 1:
+              raise ValueError('Unsupported map manifest')
+          files = manifest['files']
+          wanted = ['drivemate.pmtiles', 'osm-source-manifest.json']
+          wanted += sorted(name for name in files if pub.SNAPSHOT_PART.fullmatch(name))
+          for name in wanted:
+              info = files[name]
+              directory = Path('work/old' if name == 'drivemate.pmtiles' else 'work/snapshot')
+              path = github.download(pub.checked_tag(info['tag']), name, directory)
+              if path.stat().st_size != info['bytes'] or pub.digest(path) != info['sha256']:
+                  raise ValueError(f'Published asset checksum or size mismatch: {name}')
+          source = snapshot.verify(Path('work/snapshot'))
+          with Path('work/base.osm.pbf').open('wb') as output:
+              for chunk in source['chunks']:
+                  with (Path('work/snapshot') / chunk['name']).open('rb') as stream:
+                      shutil.copyfileobj(stream, output)
+          if pub.digest('work/base.osm.pbf') != source['source_sha256']:
+              raise ValueError('Reassembled source checksum mismatch')
+          shutil.rmtree('work/snapshot')
+          evidence = {'generation': tag, 'source_sha256': source['source_sha256'],
+                      'baseline_sha256': files['drivemate.pmtiles']['sha256'],
+                      'candidate_commit': os.environ['GITHUB_SHA']}
+          Path('work/inputs.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          Path('work/summary.md').write_text(
+              f"Test 2.17 candidate only; live map unchanged.\n\n"
+              f"Published generation: {tag}\n\nOSM SHA-256: {source['source_sha256']}\n\n")
+          PY
+      - name: Extract actual OSM bends for all four UK nations
+        run: |
+          set -euo pipefail
+          mkdir -p work/curves
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          areas = [
+              {'id': 'M60-Stockport', 'lat': 53.4085, 'lon': -2.1640},
+              {'id': 'M6-Shap', 'lat': 54.5000, 'lon': -2.6900},
+              {'id': 'A470-Betws', 'lat': 53.0630, 'lon': -3.7980},
+              {'id': 'A74M-Scotland', 'lat': 55.3200, 'lon': -3.4400},
+              {'id': 'Belfast', 'lat': 54.5973, 'lon': -5.9301},
+              {'id': 'Cardiff', 'lat': 51.4816, 'lon': -3.1791},
+          ]
+          Path('work/curves/areas.json').write_text(json.dumps(areas))
+          with Path('work/curves/areas.tsv').open('w') as output:
+              for area in areas:
+                  lat, lon = area['lat'], area['lon']
+                  output.write(f"{area['id']} {lon-.014},{lat-.008},{lon+.014},{lat+.008}\n")
+          PY
+          while read -r name bbox; do
+            osmium extract -b "$bbox" work/base.osm.pbf -o "work/curves/$name.osm.pbf" --overwrite
+            osmium tags-filter "work/curves/$name.osm.pbf" w/highway -o "work/curves/$name-roads.osm.pbf" --overwrite
+            osmium export "work/curves/$name-roads.osm.pbf" -f geojsonseq --geometry-types=linestring \
+              -o "work/curves/$name.geojsonseq" --overwrite
+            rm "work/curves/$name.osm.pbf" "work/curves/$name-roads.osm.pbf"
+          done < work/curves/areas.tsv
+      - name: Build our own smoother layout from that same snapshot
+        id: build
+        run: |
+          set -euo pipefail
+          java -Xmx12g -jar work/planetiler.jar generate-custom --schema=schema/drivemate-map.yml \
+            --osm_path=work/base.osm.pbf --ocean_path=work/sources/water-polygons-split-3857.zip \
+            --output=work/candidate.pmtiles --download --force 2>&1 | tee work/build.log | tail -n 25
+          test "$(stat -c%s work/candidate.pmtiles)" -gt 50000000
+          sha256sum work/candidate.pmtiles > work/candidate.sha256
+          python3 scripts/verify_pmtiles.py work/candidate.pmtiles work/payload-validation.json --uk-samples --layout own
+      - name: Compare map size, coverage, names and mapped bends across the UK
+        run: |
+          set -euo pipefail
+          status=0
+          python3 scripts/layout_compare.py work/old/drivemate.pmtiles work/candidate.pmtiles | tee -a work/summary.md || status=1
+          python3 scripts/check_road_shapes.py work/old/drivemate.pmtiles work/candidate.pmtiles work/curves | tee -a work/summary.md || status=1
+          exit "$status"
+      - uses: actions/setup-node@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          node-version: '20'
+      - name: Get the matching candidate style, pinned to its reviewed source
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/checkout@v4
+        with:
+          repository: phuk-prog/drivemate-map-style
+          ref: 79f5473b35f8bf0a086fbd5fc80e102cd6469f48
+          fetch-depth: 2
+          path: work/style
+      - name: Headless rendering tools and pinned fonts
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: work/style
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri libglx-mesa0 libegl1 libgles2 libopengl0 libuv1 \
+            libjpeg-turbo8 libpng16-16 libwebp7 libcurl4 libicu70 >/dev/null
+          npm install --no-audit --no-fund --silent
+          python3 -m unittest discover -s tests -v
+          node --test tests/test_nothing_lost.mjs tests/tile_sizes.test.mjs
+          curl -fsSL -o fonts.zip https://github.com/openmaptiles/fonts/releases/download/v2.0/v2.0.zip
+          echo '3a7a6c2dcd940a840aa6ffac8f39758252a667a0b329945b071fb44bf00e7f47  fonts.zip' | sha256sum -c -
+          unzip -q fonts.zip 'Noto Sans Regular/*' 'Noto Sans Bold/*' -d fonts
+          rm fonts.zip
+      - name: Paired bend pictures and drawing times, day and night
+        id: pictures
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: work/style
+        env:
+          RENDER_TIMES: '5'
+          BASELINE_STYLE_SHA: 89794ff985e512e6086fab18c0916ac3035f796f
+        run: |
+          set -euo pipefail
+          mkdir -p out/baseline-style out/candidate-style
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          areas = json.loads(Path('../curves/areas.json').read_text())
+          scenes = [dict(id=f"{a['id']}-z{z}", lat=a['lat'], lon=a['lon'], zoom=z,
+                         pitch=45, width=384, height=384) for a in areas for z in (15, 17.8)]
+          Path('out/curves-scenes.json').write_text(json.dumps(scenes))
+          PY
+          for theme in day night; do
+            git show "$BASELINE_STYLE_SHA:style/$theme.json" > "out/baseline-style/$theme.json"
+            python3 scripts/candidate_style.py "style/$theme.json" "out/candidate-style/$theme.json"
+            xvfb-run -a node scripts/render.mjs "out/baseline-style/$theme.json" \
+              "$GITHUB_WORKSPACE/work/old/drivemate.pmtiles" out/curves-scenes.json "out/baseline/$theme"
+            xvfb-run -a node scripts/render.mjs "out/candidate-style/$theme.json" \
+              "$GITHUB_WORKSPACE/work/candidate.pmtiles" out/curves-scenes.json "out/candidate/$theme"
+            xvfb-run -a node scripts/render.mjs "out/candidate-style/$theme.json" \
+              "$GITHUB_WORKSPACE/work/candidate.pmtiles" tests/scenes-sharp.json "out/sharp-$theme"
+          done
+      - name: Candidate visibility, sharpness and drawing speed
+        if: ${{ !cancelled() && steps.pictures.outcome == 'success' }}
+        working-directory: work/style
+        run: |
+          set -euo pipefail
+          status=0
+          python3 scripts/check_render.py out/candidate/day/results.json out/candidate/night/results.json \
+            | tee -a "$GITHUB_WORKSPACE/work/summary.md" || status=1
+          python3 scripts/check_sharp.py out/sharp-day/results.json out/sharp-night/results.json \
+            | tee -a "$GITHUB_WORKSPACE/work/summary.md" || status=1
+          python3 scripts/candidate_performance.py out/baseline out/candidate \
+            | tee -a "$GITHUB_WORKSPACE/work/summary.md" || status=1
+          exit "$status"
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f work/summary.md ]; then cat work/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f work/schema.txt ]; then tail -n 5 work/schema.txt >> "$GITHUB_STEP_SUMMARY"; fi
+          echo 'Candidate evidence only: app compatibility and the coordinated switch are still required for 2.17; 2.18 and 2.19 require all candidate checks to pass.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: own-layout-evidence-${{ github.run_id }}
+          path: |
+            work/summary.md
+            work/inputs.json
+            work/schema.txt
+            work/build.log
+            work/candidate.sha256
+            work/payload-validation.json
+            work/curves/areas.json
+            work/curves/*.geojsonseq
+            work/style/out/
+          retention-days: 3
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: own-layout-candidate-${{ github.run_id }}
+          path: work/candidate.pmtiles
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+

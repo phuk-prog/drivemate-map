@@ -1,0 +1,66 @@
+name: Official road intelligence snapshots
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+    - cron: '0 1 * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/road_intelligence.py', '.github/workflows/road-intelligence.yml']
+permissions:
+  contents: write
+concurrency:
+  group: road-intelligence
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - id: clock
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_CRON: ${{ github.event.schedule }}
+        run: python3 scripts/daily_schedule.py --event "$EVENT_NAME" --cron "$EVENT_CRON" >> "$GITHUB_OUTPUT"
+      - name: Test collector before network access
+        if: steps.clock.outputs.due == 'true'
+        run: python3 -m unittest tests.test_road_intelligence tests.test_daily_schedule
+      - name: Collect official snapshots with source timestamps
+        if: steps.clock.outputs.due == 'true'
+        env:
+          NATIONAL_HIGHWAYS_API_KEY: ${{ secrets.NATIONAL_HIGHWAYS_API_KEY }}
+        run: python3 scripts/road_intelligence.py --out transport
+      - name: Publish snapshot and switch its separate pointer last
+        if: steps.clock.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="road-intelligence-$(date -u +%Y%m%d)-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --latest=false --title "$tag" \
+            --notes 'Dated transport snapshot; honour expiry and source status. Powered by National Highways’ Transport Data Feeds.' transport/*
+          mkdir verified
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir verified
+          cmp transport/road-intelligence.json.gz verified/road-intelligence.json.gz
+          cmp transport/road-intelligence-manifest.json verified/road-intelligence-manifest.json
+          python3 - "$tag" <<'PY'
+          import json, sys
+          from pathlib import Path
+          value = json.loads(Path('transport/road-intelligence-manifest.json').read_text())
+          value['tag'] = sys.argv[1]
+          Path('latest.json').write_text(json.dumps(value, indent=2) + '\n')
+          PY
+          if ! gh release view road-intelligence --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create road-intelligence --repo "$GITHUB_REPOSITORY" --latest=false \
+              --title 'Official road intelligence snapshots' --notes 'Snapshot pointer; not a live traffic service.'
+          fi
+          gh release upload road-intelligence --repo "$GITHUB_REPOSITORY" latest.json --clobber
+      - name: Retain collection status
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: transport-status-${{ github.run_id }}
+          path: transport/road-intelligence-manifest.json
+          if-no-files-found: warn
+          retention-days: 7

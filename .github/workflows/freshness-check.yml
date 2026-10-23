@@ -1,0 +1,53 @@
+name: Map up to date (test 1.4)
+
+# Owner, 18 Oct 2026 (plan test 1.4): every day, check the published map is Geofabrik's current
+# OpenStreetMap extract (or at most 8 days behind it), that DMN's road pieces come from the same
+# snapshot, and that the snapshot is at most 8 days old (scripts/freshness_check.py).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_run:
+    workflows: [Build our own map data]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  REGION: europe/united-kingdom
+
+jobs:
+  check:
+    if: vars.DMN_SOURCE_REPOSITORY != '' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Published map and road-piece records
+        run: |
+          set -euo pipefail
+          mkdir -p in && cd in
+          gh release download map-data-uk -R "$GITHUB_REPOSITORY" -p latest.json
+          tag=$(jq -r '.manifest_tag // .tag' latest.json)
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p manifest.json
+          cptag=$(jq -r '.files["source-checkpoint.json"].tag // empty' manifest.json)
+          gh release download "${cptag:-$tag}" -R "$GITHUB_REPOSITORY" -p source-checkpoint.json
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json
+      - name: Geofabrik now
+        run: |
+          set -euo pipefail
+          url="https://download.geofabrik.de/${REGION}-latest.osm.pbf"
+          curl -fsSL --retry 3 -o in/geofabrik.md5 "$url.md5"
+          # follow any redirect to a mirror; the last answer's date is the file's
+          curl -fsSIL --retry 3 "$url" | tr -d '\r' | sed -n 's/^[Ll]ast-[Mm]odified: //p' | tail -n 1 > in/geofabrik-modified.txt
+          test -s in/geofabrik-modified.txt
+      - name: Check
+        run: |
+          set -o pipefail
+          python3 scripts/freshness_check.py --latest in/latest.json --manifest in/manifest.json \
+            --checkpoint in/source-checkpoint.json --dmn in/dmn-uk.json --geofabrik-md5 in/geofabrik.md5 \
+            --geofabrik-modified "$(cat in/geofabrik-modified.txt)" | tee -a "$GITHUB_STEP_SUMMARY"

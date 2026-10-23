@@ -1,0 +1,57 @@
+name: DMN road pieces cover the UK (test 1.5)
+
+# Owner, 18 Oct 2026 (plan test 1.5): every square where DriveMate's own OpenStreetMap snapshot has
+# car roads has a road piece, and named inhabited islands, border towns and the far corners each
+# have roads in their piece (scripts/dmn_coverage_check.py). Runs after each weekly road-piece build.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 15 * * 1" # Mondays, after the road pieces are built
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dmn-coverage
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  coverage:
+    if: vars.DMN_SOURCE_REPOSITORY != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q osmium==4.3.1
+      - name: Live index and the named places' pieces
+        run: |
+          set -euo pipefail
+          mkdir -p pieces
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -D pieces
+          rel=$(jq -r '.release // "dmn-uk"' pieces/dmn-uk.json)
+          for k in $(python3 scripts/dmn_coverage_check.py keys); do
+            f="dmn-$k.dmnpack"
+            if jq -e --arg k "$k" '.tiles[$k]' pieces/dmn-uk.json >/dev/null; then
+              gh release download "$rel" -R "$GITHUB_REPOSITORY" -p "$f" -D pieces
+            fi
+          done
+          echo "snapshot=$(jq -r '.source' pieces/dmn-uk.json | sed 's/^OSM snapshot //')" >> "$GITHUB_ENV"
+      - name: Squares with car roads, read from the same OpenStreetMap snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p src
+          gh release download "$snapshot" -R "$GITHUB_REPOSITORY" -p 'osm-source*' -D src
+          python3 scripts/osm_source_snapshot.py verify src
+          cat $(ls src/osm-source.part* | sort) > uk.osm.pbf && rm -rf src
+          python3 scripts/dmn_coverage_check.py squares uk.osm.pbf osm-squares.json
+      - name: Check
+        run: |
+          set -o pipefail
+          python3 scripts/dmn_coverage_check.py check pieces --osm-squares osm-squares.json | tee -a "$GITHUB_STEP_SUMMARY"

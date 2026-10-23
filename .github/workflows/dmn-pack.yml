@@ -1,0 +1,191 @@
+name: DMN road pieces (UK)
+
+# DMN's UK road map in pieces for the DriveMate app (owner, 18 Oct 2026): quarter-degree squares
+# with every road plus one UK motorway/trunk piece, read by DMN's own map reader from DriveMate's
+# own OSM snapshot (the map-data build's osm-source). The app downloads and keeps the pieces a
+# journey needs (dmn/DmnTiles.kt).
+#
+# Safe update and rollback (test 1.2, owner 18 Oct 2026): each build's pieces go in their own dated
+# release (dmn-uk-YYYYMMDD-N), never overwriting the pieces phones use now. A build is published only
+# when every piece passes scripts/dmn_pack_check.py and it is no smaller than the live map; then every
+# piece is checked as uploaded whole, the live index is kept as dmn-uk-previous.json, and the new
+# index (dmn-uk.json on the rolling release "dmn-uk") is switched last. Starting this job with
+# "rollback" puts the previous index back (a second rollback undoes the first). The 3 newest dated
+# releases, and any an index still names, are kept.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: "Release holding osm-source (blank: the current map-data snapshot)"
+        required: false
+      dmn_ref:
+        description: "DriveMate-Navigation branch or commit with tools/dmn_pack.py"
+        required: false
+        default: main
+      rollback:
+        description: "Put last week's index back instead of building"
+        type: boolean
+        required: false
+        default: false
+  workflow_run:
+    workflows: [Build our own map data]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dmn-pack
+  cancel-in-progress: false
+
+env:
+  DMN_REF: ${{ inputs.dmn_ref || 'main' }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  source:
+    if: ${{ !inputs.rollback && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && vars.DMN_SOURCE_REPOSITORY != '')) }}
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: |
+          tag="${{ inputs.source_tag }}"
+          if [ -z "$tag" ]; then
+            tag=$(gh release download map-data-uk -R "$GITHUB_REPOSITORY" -p latest.json -O - | jq -r '.extra_tag')
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "OSM snapshot: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  pieces:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: true
+      matrix:
+        rows: ["199:203", "204:204", "205:205", "206:206", "207:207", "208:208", "209:211", "212:213", "214:215", "216:218", "219:223", "224:228", "229:233", "234:243", "main"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.DMN_SOURCE_REPOSITORY || 'phuk-prog/DriveMate-Navigation' }}
+          token: ${{ secrets.MAP_BUILD_SOURCE_TOKEN || github.token }}
+          ref: ${{ env.DMN_REF }}
+          path: dmn
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: |
+          sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq osmium-tool >/dev/null
+          pip install -q osmium==4.3.1
+      - name: DriveMate's own OSM snapshot
+        run: |
+          mkdir -p src
+          gh release download "${{ needs.source.outputs.tag }}" -R "$GITHUB_REPOSITORY" -p 'osm-source*' -D src
+          python3 scripts/osm_source_snapshot.py verify src
+          cat $(ls src/osm-source.part* | sort) > uk.osm.pbf
+          rm -rf src
+      - name: Build pieces
+        run: |
+          src="OSM snapshot ${{ needs.source.outputs.tag }}"
+          if [ "${{ matrix.rows }}" = main ]; then
+            python3 scripts/dmn_tiles.py main uk.osm.pbf --dmn dmn --out out --source "$src"
+          else
+            python3 scripts/dmn_tiles.py band uk.osm.pbf --rows "${{ matrix.rows }}" --dmn dmn --out out --jobs 3 --source "$src"
+          fi
+          rm uk.osm.pbf
+          du -sh out; ls out | wc -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmn-${{ matrix.rows == 'main' && 'main' || strategy.job-index }}
+          path: out/
+          retention-days: 3
+
+  publish:
+    needs: [source, pieces]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: dmn-*
+          merge-multiple: true
+      - name: Index (names this build's dated release)
+        id: index
+        run: |
+          rel="dmn-uk-$(date -u +%Y%m%d)-${{ github.run_number }}"
+          echo "rel=$rel" >> "$GITHUB_OUTPUT"
+          python3 scripts/dmn_tiles.py index parts --source "OSM snapshot ${{ needs.source.outputs.tag }}" \
+            --built "$(date -u +%F)" --release "$rel" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Safety check (every piece passes, no smaller than the live map)
+        run: |
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -O live.json || rm -f live.json
+          set -o pipefail
+          python3 scripts/dmn_pack_check.py gate parts --live live.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload pieces to the dated release
+        env:
+          REL: ${{ steps.index.outputs.rel }}
+        run: |
+          gh release view "$REL" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$REL" -R "$GITHUB_REPOSITORY" --title "DMN road pieces (UK) $REL" \
+              --notes "DMN road map pieces for the DriveMate app, from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)." --latest=false
+          ls parts/*.dmnpack | xargs -n 40 gh release upload "$REL" -R "$GITHUB_REPOSITORY" --clobber
+      - name: Check every piece uploaded whole
+        env:
+          REL: ${{ steps.index.outputs.rel }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$REL" --jq .id)
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$id/assets?per_page=100" --jq '.[]|{name,size}' | jq -s . > assets.json
+          python3 scripts/dmn_pack_check.py uploaded parts/dmn-uk.json assets.json
+      - name: Switch phones to it (previous index kept, new index last)
+        run: |
+          set -euo pipefail
+          gh release view dmn-uk -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create dmn-uk -R "$GITHUB_REPOSITORY" --title "DMN road pieces (UK)" \
+              --notes "Index of DMN road map pieces for the DriveMate app (© OpenStreetMap contributors, ODbL 1.0). The pieces are in the dated release the index names. Rebuilt weekly." --latest=false
+          if [ -f live.json ]; then
+            cp live.json dmn-uk-previous.json
+            gh release upload dmn-uk -R "$GITHUB_REPOSITORY" --clobber dmn-uk-previous.json
+          fi
+          gh release upload dmn-uk -R "$GITHUB_REPOSITORY" --clobber parts/dmn-uk.json
+          echo "Phones now use ${{ steps.index.outputs.rel }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove old dated releases (keep the 3 newest and any an index names)
+        run: |
+          set -euo pipefail
+          keep="${{ steps.index.outputs.rel }}"
+          [ -f dmn-uk-previous.json ] && keep="$keep $(jq -r '.release // empty' dmn-uk-previous.json)"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name' \
+            | grep -E '^dmn-uk-[0-9]{8}-[0-9]+$' | sort -t- -k3,3nr -k4,4nr > dated.txt || true
+          tail -n +4 dated.txt | while read -r rel; do
+            case " $keep " in *" $rel "*) continue ;; esac
+            gh release delete "$rel" -R "$GITHUB_REPOSITORY" --cleanup-tag -y
+            echo "removed $rel"
+          done
+
+  rollback:
+    if: ${{ inputs.rollback }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put the previous index back (checked first)
+        run: |
+          set -euo pipefail
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -O current.json
+          gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk-previous.json -O previous.json
+          rel=$(jq -r '.release // empty' previous.json)
+          if [ -z "$rel" ]; then echo "The previous index names no dated release: not rolled back" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$rel" --jq .id) || {
+            echo "Release $rel is gone: not rolled back" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; }
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$id/assets?per_page=100" --jq '.[]|{name,size}' | jq -s . > assets.json
+          python3 scripts/dmn_pack_check.py uploaded previous.json assets.json
+          mkdir -p swap && cp previous.json swap/dmn-uk.json && cp current.json swap/dmn-uk-previous.json
+          gh release upload dmn-uk -R "$GITHUB_REPOSITORY" --clobber swap/dmn-uk-previous.json
+          gh release upload dmn-uk -R "$GITHUB_REPOSITORY" --clobber swap/dmn-uk.json
+          echo "Rolled back: phones now use $rel (was $(jq -r '.release // "dmn-uk"' current.json))" >> "$GITHUB_STEP_SUMMARY"

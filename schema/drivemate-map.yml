@@ -1,0 +1,262 @@
+# DriveMate's own map-file layout (map style test 2.17, owner 19 Oct 2026). Designed by us for what a driver needs:
+# no OpenMapTiles layout, so the map credit is OpenStreetMap contributors only. Built every week by map-data.yml:
+#   java -jar planetiler.jar generate-custom --schema=schema/drivemate-map.yml --osm_path=<snapshot> --output=<file>
+# Layers (fields in brackets): water, land [kind], buildings [height, min_height], roads [kind, link, name, ref, shield],
+# places [kind, name, population], pois [kind, name]. phuk-prog/drivemate-map-style draws them.
+schema_name: DriveMate
+schema_description: DriveMate's own map layout, only what a driver needs
+examples: drivemate-map.spec.yml
+attribution: <a href="https://www.openstreetmap.org/copyright">&copy; OpenStreetMap contributors</a>
+args:
+  osm_path:
+    description: OpenStreetMap snapshot to build from
+    default: data/sources/map-input.osm.pbf
+  ocean_path:
+    description: OpenStreetMap sea polygons (downloaded with --download when missing)
+    default: data/sources/water-polygons-split-3857.zip
+  # One extra geometry zoom reduces coordinate quantisation when the driving camera overzooms to 17.8.
+  # The candidate must still be no larger or slower than the published map before it can go live.
+  maxzoom: 15
+sources:
+  # sea from OpenStreetMap's coastline (osmdata.openstreetmap.de), the same OSM data under the ODbL
+  ocean:
+    type: shapefile
+    url: https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip
+    local_path: '${ args.ocean_path }'
+  osm:
+    type: osm
+    local_path: '${ args.osm_path }'
+tag_mappings:
+  population: integer
+layers:
+  - id: water
+    features:
+      - source: ocean
+        geometry: polygon
+      - source: osm
+        geometry: polygon
+        min_zoom: 6
+        include_when:
+          natural: water
+          waterway: [riverbank, dock]
+          landuse: [reservoir, basin]
+        exclude_when:
+          intermittent: 'yes'
+    tile_post_process:
+      merge_polygons:
+        min_area: 1
+        tolerance: 0.25
+
+  - id: land
+    features:
+      - source: osm
+        geometry: polygon
+        min_zoom: 8
+        include_when:
+          leisure: nature_reserve
+          boundary: national_park
+        attributes:
+          - key: kind
+            value: reserve
+      - source: osm
+        geometry: polygon
+        min_zoom: 10
+        include_when:
+          leisure: [park, recreation_ground, golf_course, common, village_green]
+        exclude_when:
+          __all__:
+            - leisure: garden
+        attributes:
+          - key: kind
+            value: park
+      - source: osm
+        geometry: polygon
+        min_zoom: 9
+        include_when:
+          natural: wood
+          landuse: forest
+        attributes:
+          - key: kind
+            value: wood
+      - source: osm
+        geometry: polygon
+        min_zoom: 10
+        include_when:
+          landuse: [grass, meadow, village_green, recreation_ground, allotments]
+          natural: [grassland, heath, scrub, fell]
+        attributes:
+          - key: kind
+            value: grass
+    tile_post_process:
+      merge_polygons:
+        min_area: 1
+        tolerance: 0.25
+
+  - id: buildings
+    features:
+      - source: osm
+        geometry: polygon
+        min_zoom: 14
+        include_when:
+          building: __any__
+          building:part: __any__
+        exclude_when:
+          building: 'no'
+          building:part: 'no'
+        attributes:
+          # metres; a mapped height, else 3.66 m a storey, else 5 m (one low building)
+          - key: height
+            type: double
+            value: '${ feature.tags.has("height") && feature.tags.height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.height.replace("m", "").trim()) : feature.tags.has("building:levels") && feature.tags["building:levels"].matches("^[0-9]+([.][0-9]+)?$") ? double(feature.tags["building:levels"]) * 3.66 : 5.0 }'
+          - key: min_height
+            type: double
+            include_when: '${ feature.tags.has("min_height") || feature.tags.has("building:min_level") }'
+            value: '${ feature.tags.has("min_height") && feature.tags.min_height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.min_height.replace("m", "").trim()) : feature.tags.has("building:min_level") && feature.tags["building:min_level"].matches("^[0-9]+([.][0-9]+)?$") ? double(feature.tags["building:min_level"]) * 3.66 : 0.0 }'
+
+  - id: roads
+    features:
+      - source: osm
+        geometry: line
+        # Retain mapped bends; do not manufacture curves or move junctions.
+        min_size: 0
+        min_size_at_max_zoom: 0
+        tolerance: 0.0625
+        tolerance_at_max_zoom: 0.015625
+        include_when:
+          highway: [motorway, motorway_link, trunk, trunk_link, primary, primary_link, secondary, secondary_link,
+                    tertiary, tertiary_link, unclassified, residential, living_street, road, service]
+        exclude_when:
+          area: 'yes'
+        min_zoom:
+          default_value: 12
+          overrides:
+            4: { highway: motorway }
+            5: { highway: trunk }
+            7: { highway: primary }
+            9: { highway: [secondary, motorway_link, trunk_link] }
+            10: { highway: primary_link }
+            11: { highway: [tertiary, secondary_link] }
+            14: { service: [driveway, parking_aisle, drive-through] }  # first match wins, so before plain service
+            13: { highway: service }
+        attributes:
+          - key: kind
+            value:
+              motorway: { highway: [motorway, motorway_link] }
+              trunk: { highway: [trunk, trunk_link] }
+              primary: { highway: [primary, primary_link] }
+              secondary: { highway: [secondary, secondary_link] }
+              tertiary: { highway: [tertiary, tertiary_link] }
+              service: { highway: service }
+              minor: otherwise
+          - key: link
+            value: true
+            include_when: { highway: '%_link' }
+          - &name
+            key: name
+            min_zoom: 12
+          - &ref
+            key: ref
+            min_zoom: 8
+            include_when: { highway: [motorway, trunk, primary, motorway_link, trunk_link] }
+          # road-number sign colour (UK law, TSRGD 2016): blue motorway, green primary route, white other A roads
+          - key: shield
+            min_zoom: 8
+            include_when: '${ feature.tags.has("ref") && feature.tags.has("highway", "motorway", "trunk", "primary") }'
+            value:
+              blue: { highway: motorway }
+              green: { highway: trunk }
+              white: otherwise
+      - source: osm
+        geometry: line
+        min_zoom: 7
+        min_size: 0
+        min_size_at_max_zoom: 0
+        tolerance: 0.0625
+        tolerance_at_max_zoom: 0.015625
+        include_when:
+          route: ferry
+        attributes:
+          - key: kind
+            value: ferry
+          - *name
+      - source: osm
+        geometry: line
+        min_zoom: 13
+        min_size: 0
+        min_size_at_max_zoom: 0
+        tolerance: 0.0625
+        tolerance_at_max_zoom: 0.015625
+        include_when:
+          highway: [busway, bus_guideway]
+        attributes:
+          - key: kind
+            value: busway
+      - source: osm
+        geometry: line
+        min_zoom: 13
+        min_size: 0
+        min_size_at_max_zoom: 0
+        tolerance: 0.0625
+        tolerance_at_max_zoom: 0.015625
+        include_when:
+          highway: construction
+        attributes:
+          - key: kind
+            value: construction
+    tile_post_process:
+      merge_line_strings:
+        min_length: 0
+        min_length_at_max_zoom: 0
+        tolerance: 0.0625
+        tolerance_at_max_zoom: 0.015625
+        buffer: 4
+
+  - id: places
+    features:
+      - source: osm
+        geometry: point
+        include_when:
+          place: [city, town, village, suburb]
+        exclude_when:
+          name: ''
+        min_zoom:
+          default_value: 11
+          overrides:
+            5: { place: city }
+            7: { place: town }
+            10: { place: village }
+        attributes:
+          - key: kind
+            tag_value: place
+          - key: name
+            min_zoom: 0
+          - key: population
+            tag_value: population
+            type: integer
+            min_zoom: 0
+
+  - id: pois
+    features:
+      - source: osm
+        geometry: point
+        min_zoom: 14
+        include_when: &driver_pois
+          amenity: [fuel, charging_station, parking, hospital]
+        exclude_when: &unnamed
+          '${ !(feature.tags.has("name") || feature.tags.has("brand") || (feature.tags.has("amenity", "charging_station") && (feature.tags.has("operator") || feature.tags.has("ref")))) }': true
+        attributes: &poi_attributes
+          - key: kind
+            value:
+              fuel: { amenity: fuel }
+              charging: { amenity: charging_station }
+              parking: { amenity: parking }
+              hospital: { amenity: hospital }
+          - key: name
+            value: '${ feature.tags.has("name") ? feature.tags.name : feature.tags.has("amenity", "charging_station") ? (coalesce(feature.tags.get("brand"), feature.tags.get("operator"), "") + (feature.tags.has("ref") ? (feature.tags.has("brand") || feature.tags.has("operator") ? " " : "") + feature.tags.ref : "")) : feature.tags.get("brand") }'
+      - source: osm
+        geometry: polygon_centroid_if_convex
+        min_zoom: 14
+        include_when: *driver_pois
+        exclude_when: *unnamed
+        attributes: *poi_attributes
+
