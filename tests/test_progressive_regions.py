@@ -69,7 +69,7 @@ class ProgressiveRegionTests(unittest.TestCase):
         class Reply:
             def __enter__(self): return self
             def __exit__(self,*args): return None
-            def read(self,n): return (b'a'*32+b'  greater-manchester-latest.osm.pbf\\n')
+            def read(self,n): return (b'a'*32+b'  greater-manchester-latest.osm.pbf\n')
         def opener(target,timeout):
             calls.append((target,timeout))
             if len(calls)<3: raise TimeoutError('temporary failure')
@@ -88,7 +88,7 @@ class ProgressiveRegionTests(unittest.TestCase):
         class Invalid:
             def __enter__(self): return self
             def __exit__(self,*args): return None
-            def read(self,n): return b'0'*32+b'  unexpected.osm.pbf\\n'
+            def read(self,n): return b'0'*32+b'  unexpected.osm.pbf\n'
         with self.assertRaises(ValueError):
             regions.read_source_signal(regions.GM_SOURCE,opener=lambda *args,**kw:Invalid(),
                                        sleeper=lambda _:None)
