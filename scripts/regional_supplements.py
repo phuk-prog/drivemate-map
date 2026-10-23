@@ -14,6 +14,7 @@ import math
 from pathlib import Path, PurePosixPath
 import time
 from urllib.parse import urlsplit
+from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 import zipfile
 
@@ -114,7 +115,7 @@ class HTTPRangeReader(io.RawIOBase):
         headers = {k.lower(): v for k, v in headers.items()}
         if (status != 206 or headers.get('content-range') != f'bytes {start}-{end}/{self.size}'
                 or len(data) != size or headers.get('content-encoding', 'identity') != 'identity'):
-            raise SourceUnavailable('OS archive server must support exact byte ranges')
+            raise SourceUnavailable('OS archive server must support exact byte ranges (status ' + str(int(status)) + ')')
         approved_url(final)
         self.final_url = final
         self.position += size
@@ -236,6 +237,8 @@ def import_os_open_names(bounds, output_dir, *, distribution_url=None, fetch=htt
     if directory.is_symlink() or (directory.exists() and any(directory.iterdir())):
         result['reason'] = 'OutputNotEmptyOrUnsafe'
         return result
+    stage = 'catalogue'
+    reader = None
     try:
         status, _, raw, _ = fetch(API)
         listings = json.loads(raw)
@@ -245,6 +248,7 @@ def import_os_open_names(bounds, output_dir, *, distribution_url=None, fetch=htt
         if len(candidates) != 1:
             raise SourceUnavailable('Ambiguous OS CSV distribution')
         item = candidates[0]
+        stage = 'regional-archive'
         reader = HTTPRangeReader(distribution_url or item['url'], item['size'], fetch)
         extracted = extract_region(reader, bounds, output_dir)
         result.update(extracted)
@@ -253,6 +257,20 @@ def import_os_open_names(bounds, output_dir, *, distribution_url=None, fetch=htt
     except Exception as error:
         # Remote bodies and signed redirect query parameters must not enter public logs.
         result['reason'] = type(error).__name__
+        result['stage'] = stage
+        if isinstance(error, SourceUnavailable):
+            # SourceUnavailable messages are controlled literals raised here;
+            # never include generic exception text (URLs, bodies or tokens).
+            result['detail'] = str(error)[:180]
+        elif isinstance(error, HTTPError):
+            result['detail'] = 'OS HTTPS request returned status ' + str(int(error.code))
+        elif isinstance(error, zipfile.BadZipFile):
+            result['detail'] = 'Remote archive is not a supported ZIP'
+        else:
+            result['detail'] = 'OS import failed at the recorded stage; remote error text withheld'
+        if reader is not None:
+            result['downloaded_bytes'] = reader.transferred
+            result['range_requests'] = reader.requests
         directory = Path(output_dir)
         if directory.exists():
             for child in directory.iterdir():

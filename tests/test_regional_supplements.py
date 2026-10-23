@@ -89,6 +89,21 @@ class RegionalSupplementTests(unittest.TestCase):
             self.assertNotIn('records', result)
             self.assertEqual([], list(Path(tmp).iterdir()))
 
+    def test_diagnostics_show_controlled_failure_detail_without_remote_text(self):
+        def bad_source(*args):
+            raise RuntimeError('secret-token-and-remote-body')
+        with tempfile.TemporaryDirectory() as tmp:
+            result = regional.import_os_open_names(self.bounds, tmp, fetch=bad_source)
+            self.assertEqual('catalogue', result['stage'])
+            self.assertNotIn('secret-token', json.dumps(result))
+        fetch, _ = self.transport(self.archive(), status=200)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = regional.import_os_open_names(self.bounds, tmp, fetch=fetch)
+            self.assertEqual('regional-archive', result['stage'])
+            self.assertIn('exact byte ranges', result['detail'])
+            self.assertIn('status 200', result['detail'])
+            self.assertEqual(1, result['range_requests'])
+
     def test_existing_output_is_preserved_on_rejected_import(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = Path(tmp) / 'saved.csv'

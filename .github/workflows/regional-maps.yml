@@ -69,6 +69,7 @@ jobs:
           path: |
             work/regional/*/out/region-quality.json
             work/regional/*/out/source-inventory.json
+            work/regional/*/out/source-import-status.json
             work/regional/*/out/map-validation.json
             work/regional/*/out/routing-validation.json
             build/reports/unified-preflight.json

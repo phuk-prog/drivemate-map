@@ -42,11 +42,23 @@ def filter_export(source, work, name, filters, geometry='point,linestring,polygo
     return target
 
 
+def geojson_features(path):
+    # RFC 8142 record separators are part of each record prefix. Python's
+    # str.splitlines() treats them as line breaks, creating bogus empty JSON.
+    with Path(path).open(encoding='utf-8') as stream:
+        for line in stream:
+            text = line.strip().lstrip('\x1e').strip()
+            if text:
+                feature = json.loads(text)
+                if not isinstance(feature, dict) or feature.get('type') != 'Feature':
+                    raise ValueError('Unexpected GeoJSON sequence record')
+                yield feature
+
+
 def osm_search(geojson, output, bounds):
     """Fallback OSM search; retains mapped addresses/postcodes, makes no completeness claim."""
     lines = set()
-    for text in Path(geojson).read_text().splitlines():
-        feature = json.loads(text.lstrip('\x1e'))
+    for feature in geojson_features(geojson):
         props = feature.get('properties', {})
         geometry = feature.get('geometry', {})
         def points(value):
@@ -174,6 +186,7 @@ def main():
         overture_ok = False
     if overture_ok and overture.is_file() and overture.stat().st_size:
         places_args += ['--overture', str(overture), '--overture-release', args.overture_release]
+        shutil.copyfile(overture, out / 'overture-places.parquet')
         source_status.append({'id': 'overture-places', 'status': 'imported', 'bounds': bounds,
                               'release': args.overture_release, 'sha256': publisher.digest(overture)})
     else:
@@ -187,6 +200,8 @@ def main():
     except ValueError:
         os_names = {'status': 'unavailable', 'reason': 'Region requires smaller OS grid-sheet batches'}
     source_status.append({'id': 'os-open-names', **os_names})
+    (out / 'source-import-status.json').write_text(json.dumps(source_status, sort_keys=True, indent=2) + '\n')
+    print(json.dumps({'supplementary_sources': [{'id': row['id'], 'status': row['status'], 'reason': row.get('reason'), 'detail': row.get('detail')} for row in source_status]}), flush=True)
     if os_names['status'] == 'imported':
         places_args += ['--osnames', str(os_names['directory'])]
         search_stats = search_offline.build(str(os_names['directory']), str(out / 'search-offline-uk.tsv.gz'))
@@ -217,8 +232,7 @@ def main():
     empty = work / 'empty'
     empty.mkdir()
     actor = Actor(get_config(tile_extract=str(graph), tile_dir=str(empty), verbose=False))
-    for text in roads.read_text().splitlines():
-        feature = json.loads(text.lstrip('\x1e'))
+    for feature in geojson_features(roads):
         geometry = feature.get('geometry', {})
         if geometry.get('type') != 'LineString':
             continue
