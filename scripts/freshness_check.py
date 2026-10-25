@@ -1,4 +1,4 @@
-"""Is the published map up to date with OpenStreetMap? Test 1.4 (owner, 18 Oct 2026).
+"""Is the published map up to date with OpenStreetMap?
 
 Compares what DriveMate published with what Geofabrik serves now, using only recorded facts:
 the published source checkpoint (Geofabrik's MD5 change signal for the extract the build
@@ -83,10 +83,10 @@ def main(argv=None) -> int:
                      json.loads(a.dmn.read_text()), a.geofabrik_md5.read_text(),
                      parsedate_to_datetime(a.geofabrik_modified), now)
     except (ValueError, KeyError, TypeError, OSError) as exc:
-        print(f"## Map up to date (test 1.4): cannot check\n\n{exc}")
+        print(f"## Map up to date: cannot check\n\n{exc}")
         return 1
     passed = sum(ok for _, ok, _ in rows)
-    print(f"## Map up to date (test 1.4): {passed}/{len(rows)} pass\n")
+    print(f"## Map up to date: {passed}/{len(rows)} pass\n")
     for name, ok, why in rows:
         print(f"- {'PASS' if ok else 'FAIL'} {name}: {why}")
     return 0 if passed == len(rows) else 1

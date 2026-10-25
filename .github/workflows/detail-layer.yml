@@ -1,6 +1,6 @@
-name: Road furniture and signs layer (test 2.14)
+name: Road furniture and signs layer
 
-# Owner, 18 Oct 2026 (plan test 2.14: all speed signs, road signs and more on the map): every traffic light,
+# Every traffic light,
 # stop and give-way, crossing, speed camera, level crossing, barrier, speed bump, speed-limit sign (with its
 # number), motorway junction number and other road sign in DriveMate's own OpenStreetMap snapshot, as a small
 # map file (scripts/detail_layer.py, tippecanoe). Published like the road pieces: a dated release, then the
@@ -59,7 +59,7 @@ jobs:
           rm uk.osm.pbf
           osmium export signs.osm.pbf -f geojsonseq -o signs.geojsonseq --overwrite --geometry-types=point
           python3 scripts/detail_layer.py signs.geojsonseq detail.geojsonseq | tee counts.txt
-          { echo "## Road furniture and signs (test 2.14), snapshot $SNAPSHOT"; echo; echo '```'; cat counts.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## Road furniture and signs, snapshot $SNAPSHOT"; echo; echo '```'; cat counts.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           tippecanoe -q -o drivemate-detail.pmtiles -l detail -Z12 -z14 -r1 --no-feature-limit --no-tile-size-limit \
             --attribution '© OpenStreetMap contributors, ODbL 1.0' detail.geojsonseq
           ls -l drivemate-detail.pmtiles

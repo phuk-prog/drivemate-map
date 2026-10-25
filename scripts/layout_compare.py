@@ -1,4 +1,4 @@
-"""Test 2.17: our own map layout against the OpenMapTiles-layout map it replaces, on the whole UK.
+"""Our own map layout against the OpenMapTiles-layout map it replaces, on the whole UK.
 
     python3 scripts/layout_compare.py OLD.pmtiles NEW.pmtiles > summary.md
 
@@ -136,7 +136,7 @@ def sizes(path):
 def main(old, new):
     problems = []
     (old_bytes, old_zoom), (new_bytes, new_zoom) = sizes(old), sizes(new)
-    print("## Test 2.17: our own map layout against the OpenMapTiles layout (whole UK)\n")
+    print("## Our own map layout against the OpenMapTiles layout (whole UK)\n")
     print(f"Whole file: old {old_bytes / 1e9:.2f} GB, new {new_bytes / 1e9:.2f} GB "
           f"({(new_bytes - old_bytes) / old_bytes:+.1%})\n")
     if new_bytes > old_bytes:

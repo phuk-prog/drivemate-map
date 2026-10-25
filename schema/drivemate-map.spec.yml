@@ -1,4 +1,4 @@
-# Checks for our own map layout (test 2.17): java -jar planetiler.jar verify schema/drivemate-map.yml
+# Checks for our own map layout: java -jar planetiler.jar verify schema/drivemate-map.yml
 examples:
   - name: charging station operator and reference preserved when unnamed
     input: { source: osm, geometry: point, tags: { amenity: charging_station, operator: Alfen, ref: GB-123 } }
@@ -30,7 +30,7 @@ examples:
   - name: pedestrian area left out
     input: { source: osm, geometry: line, tags: { highway: service, area: 'yes' } }
     output: []
-  - name: footpath left out (owner, 18 Oct 2026)
+  - name: footpath left out
     input: { source: osm, geometry: line, tags: { highway: footway } }
     output: []
   - name: ferry
@@ -63,7 +63,7 @@ examples:
   - name: unnamed car park left out
     input: { source: osm, geometry: point, tags: { amenity: parking } }
     output: []
-  - name: shop left out (owner, 18 Oct 2026)
+  - name: shop left out
     input: { source: osm, geometry: point, tags: { shop: supermarket, name: Tesco } }
     output: []
   - name: wood

@@ -1,4 +1,4 @@
-"""Test 1.6 (credits): owners' published wording is required, near misses are caught."""
+"""Owners' published wording is required, near misses are caught."""
 import sys
 import unittest
 from pathlib import Path

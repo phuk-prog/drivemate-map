@@ -1,11 +1,11 @@
 name: DMN road pieces (UK)
 
-# DMN's UK road map in pieces for the DriveMate app (owner, 18 Oct 2026): quarter-degree squares
+# DMN's UK road map in pieces for the DriveMate app: quarter-degree squares
 # with every road plus one UK motorway/trunk piece, read by DMN's own map reader from DriveMate's
 # own OSM snapshot (the map-data build's osm-source). The app downloads and keeps the pieces a
 # journey needs (dmn/DmnTiles.kt).
 #
-# Safe update and rollback (test 1.2, owner 18 Oct 2026): each build's pieces go in their own dated
+# Safe update and rollback: each build's pieces go in their own dated
 # release (dmn-uk-YYYYMMDD-N), never overwriting the pieces phones use now. A build is published only
 # when every piece passes scripts/dmn_pack_check.py and it is no smaller than the live map; then every
 # piece is checked as uploaded whole, the live index is kept as dmn-uk-previous.json, and the new

@@ -1,4 +1,4 @@
-"""Test 1.2 (offline map package): good DMN road pieces pass, damaged ones are refused."""
+"""Good DMN road pieces pass, damaged ones are refused."""
 import copy
 import gzip
 import hashlib

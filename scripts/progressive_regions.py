@@ -36,7 +36,7 @@ INITIAL = [
      'source_url': GM_SOURCE, 'sample': [-2.2309, 53.4774], 'inland': True},
 ]
 # Crown dependencies outside Geofabrik's united-kingdom tree, published as
-# their own regions (owner, 2026-10-25).
+# their own regions.
 ISLANDS = ('isle-of-man', 'guernsey-jersey')
 # Scripts that do not affect a region's files: changing them must not rebuild every region.
 NOT_BUILD_INPUTS = ('scripts/uk_overview.py', 'scripts/map_watchdog.py', 'scripts/daily_schedule.py',

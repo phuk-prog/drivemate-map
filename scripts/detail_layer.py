@@ -1,5 +1,4 @@
-"""Road furniture and signs for the map (plan test 2.14, owner 18 Oct 2026: "include all speed signs, road
-signs ... and more").
+"""Road furniture and signs for the map: all speed signs, road signs and more.
 
 Reads `osmium export -f geojsonseq` of the sign and furniture nodes in DriveMate's own OpenStreetMap snapshot
 and writes one GeoJSON feature per line with a plain `kind` (what the map draws), `text` (a speed-limit sign's

@@ -1,4 +1,4 @@
-"""Test 1.5 (owner, 18 Oct 2026): DMN's UK road pieces cover the whole UK, islands and borders too.
+"""DMN's UK road pieces cover the whole UK, islands and borders too.
 
 Two checks, both against the published index (dmn-uk.json) and its pieces:
 
@@ -143,7 +143,7 @@ def main() -> int:
         return 0
     squares = json.loads(Path(a.osm_squares).read_text()) if a.osm_squares else None
     lines, fails = check(Path(a.dir), squares)
-    print(f"## Coverage (test 1.5): {'pass' if not fails else 'FAIL'}\n")
+    print(f"## Coverage: {'pass' if not fails else 'FAIL'}\n")
     print("\n".join(lines))
     for f in fails[:60]:
         print(f"  - {f}")

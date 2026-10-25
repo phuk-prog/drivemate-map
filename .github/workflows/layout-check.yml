@@ -104,7 +104,7 @@ jobs:
                       'candidate_commit': os.environ['GITHUB_SHA']}
           Path('work/inputs.json').write_text(json.dumps(evidence, indent=2) + '\n')
           Path('work/summary.md').write_text(
-              f"Test 2.17 candidate only; live map unchanged.\n\n"
+              f"Candidate only; live map unchanged.\n\n"
               f"Published generation: {tag}\n\nOSM SHA-256: {source['source_sha256']}\n\n")
           PY
       - name: Extract actual OSM bends for all four UK nations

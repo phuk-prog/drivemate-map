@@ -1,4 +1,4 @@
-"""Test 1.6 (owner, 18 Oct 2026): every licence credit is present and worded as its owner asks.
+"""Every licence credit is present and worded as its owner asks.
 
 Each rule is one data source DriveMate uses, the wording its owner publishes (link kept with the
 rule), and the phrases that wording needs. A file passes a rule when it holds every phrase (case and
@@ -93,7 +93,7 @@ def main() -> int:
     if a.app:
         files[a.app] = Path(a.app).read_text()
     lines, fails = check(files, DATA_RULES)
-    print(f"## Credits (test 1.6): {'pass' if not fails else f'{fails} missing'}\n")
+    print(f"## Credits: {'pass' if not fails else f'{fails} missing'}\n")
     print("\n".join(lines))
     return 1 if fails else 0
 

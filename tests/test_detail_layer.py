@@ -1,4 +1,4 @@
-"""Test 2.14 data: road furniture and signs from the OSM snapshot get the right kind and text."""
+"""Road furniture and signs from the OSM snapshot get the right kind and text."""
 import sys
 import unittest
 from pathlib import Path

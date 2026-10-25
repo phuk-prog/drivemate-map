@@ -203,7 +203,7 @@ jobs:
           set -o pipefail
           curl -sSfL -o work/planetiler.jar "https://github.com/onthegomap/planetiler/releases/download/v${PLANETILER_VERSION}/planetiler.jar"
           printf '%s  %s\n' "$PLANETILER_SHA256" work/planetiler.jar | sha256sum --check --strict
-          # Unnamed private gardens left out of the map pictures only (map style test 2.15): about 24,000 in one
+          # Unnamed private gardens left out of the map pictures only: about 24,000 in one
           # Manchester square, too small to help a driver; named public gardens stay. Other outputs read the full file.
           osmium tags-filter -R work/base.osm.pbf w/leisure=garden r/leisure=garden -o work/gardens.osm.pbf --overwrite
           osmium tags-filter -R -i work/gardens.osm.pbf w/name r/name -o work/gardens-unnamed.osm.pbf --overwrite
@@ -223,7 +223,7 @@ jobs:
           # A real UK map is hundreds of MB; a tiny file means the build failed.
           [ $(stat -c %s out/drivemate.pmtiles) -gt 50000000 ] || { echo "::error::Map file is too small - build failed"; exit 1; }
 
-      - name: Versioned own-layout map alongside the legacy map (test 2.17)
+      - name: Versioned own-layout map alongside the legacy map
         shell: bash
         run: |
           set -o pipefail
@@ -346,7 +346,7 @@ jobs:
               | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
-      # Mapillary painted-arrow step removed 10 Oct 2026 (owner decision): Mapillary's terms
+      # Mapillary painted-arrow step removed 10 Oct 2026: Mapillary's terms
       # forbid use in navigation. Lanes come from OSM only.
 
       - name: Road warnings and turn landmarks (from OpenStreetMap), in squares
@@ -383,7 +383,7 @@ jobs:
           osmium export work/maxspeed.osm.pbf -f geojsonseq -o work/maxspeed.geojsonseq --overwrite --geometry-types=linestring -u type_id
           osmium tags-filter work/base.osm.pbf w/highway=motorway -o work/motorways.osm.pbf --overwrite
           osmium export work/motorways.osm.pbf -f geojsonseq -o work/motorways.geojsonseq --overwrite --geometry-types=linestring -u type_id
-          # OSM only: Mapillary sign detections removed 10 Oct 2026 (owner decision; terms forbid navigation use).
+          # OSM only: Mapillary sign detections removed 10 Oct 2026 (its terms forbid navigation use).
           python3 scripts/limits.py work/maxspeed.geojsonseq out/limits work/motorways.geojsonseq out/limit-checks.md \
             | tee -a out/build-info.txt
           echo 'limit_sources=OpenStreetMap maxspeed only (no Mapillary)' >> out/build-info.txt
@@ -523,7 +523,7 @@ jobs:
 
       - name: Regional map packages (nationwide z0-9 base + z10-14 regions), verified
         env:
-          # Approved by the owner 10 Oct 2026; set repo variable PUBLISH_REGIONAL_MAPS=false to stop.
+          # Set repo variable PUBLISH_REGIONAL_MAPS=false to stop.
           PUBLISH_REGIONAL_MAPS: ${{ vars.PUBLISH_REGIONAL_MAPS || 'true' }}
         run: |
           set -euo pipefail
