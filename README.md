@@ -1,60 +1,18 @@
 # DriveMate map data
 
-Open map data for DriveMate, built **region first** by
-[regional-maps.yml](.github/workflows/regional-maps.yml). Stockport is published
-first, then Manchester, then Greater Manchester, Wales, Scotland and Northern
-Ireland, followed by the smallest available English regional extracts ordered
-outwards, plus the **Isle of Man** and the **Channel Islands** (Jersey, Guernsey,
-Alderney, Sark). A successful publication automatically starts the next regional job.
-There is no whole-UK *detailed* archive. Zoomed-out views use the separate
-low-detail **UK overview map** (below).
+Open map data for the DriveMate app: the whole UK, the Isle of Man and the Channel Islands, as
+54 regions plus one low-detail UK overview map, rebuilt at 01:00 and 14:00 UK time with
+OpenStreetMap's hourly changes. How the updates run, and how to change them, is in the workflow
+guide kept in the DriveMate app repository; this README only describes what is published.
 
-Each region has its own immutable map, source snapshot, mapped lanes/limits,
-places/search, warnings, feature/relation packs, signs and regional Valhalla graph.
-The verified catalog is published at `map-regions/catalog.json` in Releases.
-Large regions are automatically split across multiple immutable GitHub releases
-(maximum 900 map assets per release), with every file tagged and hash-verified
-before the shared catalog advances. Failed later shards never mark a region ready.
-Only regions listed there are available. Coverage remains explicitly **partial**;
-completing the extract list alone is not proof that every UK road was verified.
+| Published | Where |
+|---|---|
+| Region catalogue (which regions exist, each region's immutable files and hashes) | `map-regions/catalog.json` |
+| One region's files | the `map-data-region-<id>-r…` releases its catalogue entry names (`manifest.json` lists every file) |
+| UK overview map (zoom 0-10) | pointer `map-data-overview/overview.json` → `drivemate-overview.pmtiles` |
+| Kept copies of slow sources, and each update's merged OSM changes | `map-data-sources` |
 
-Twice a day, at **01:00 and 14:00 Europe/London** (summer and winter), GitHub
-starts an update. Each region's Geofabrik extract is brought up to that time with
-the official OpenStreetMap **hourly changes** (`osm_changes.py`): the diffs for the
-30 hours before the update time are merged **once** into one change file, kept on
-the `map-data-sources` release and applied by every region in that update, so the
-14:00 update carries the morning's edits even though Geofabrik publishes once a day.
-Each region is then compared using canonical local OSM content; unchanged content
-is not rebuilt and identical assets are reused by SHA-256. Overture, OS Open Names
-and builder identity changes also trigger a rebuild.
-
-Reliability:
-- every download is retried with waits in between;
-- the 900 MB sea outlines are kept in the Actions cache and a copy is kept on the
-  `map-data-sources` release, used whenever osmdata.openstreetmap.de is slow;
-- regions are **built six at a time** (plan → parallel builds → one catalogue change), so
-  a full UK update takes about an hour; **one failed region does not stop the others**;
-  it stays behind and the hourly `map-watchdog.yml` starts another update for it;
-- the watchdog also restarts an update GitHub dropped or delayed, and a stale overview;
-- a source whose change signal cannot be read holds back only its own regions;
-- if the hourly changes are unavailable the region is built from the extract as
-  published and noted (`osm_changes: unavailable` in the catalog).
-
-A failed check or upload never results in publication. GitHub scheduling is best
-effort and may start later than the target time.
-
-## UK overview map
-
-[uk-overview.yml](.github/workflows/uk-overview.yml) builds one low-detail map of
-the whole UK, Isle of Man and Channel Islands, zoom 0 to 10, at the same 01:00 and
-14:00 times: sea, lakes, woods, parks, motorways, A and B roads, ferries and towns
-(`uk_overview.py`). It is checked for roads near eight towns across all nations and
-both island groups, uploaded to its own immutable `map-data-overview-r…` tag, and only
-then the pointer `map-data-overview/overview.json` moves to it. The app draws it when
-zoomed out and the regional detail when zoomed in. It never touches the regional catalog.
-
-The old `map-data.yml` whole-UK-first workflow is disabled. Its scripts and tests
-remain as historical format/compatibility references; it is not the active build.
+Coverage is marked **partial**: publishing every extract is not proof that every UK road was checked.
 
 The tables below document recoverable formats. The regional `source-inventory.json`
 reports which sources were actually imported; availability is never inferred from
@@ -148,20 +106,7 @@ Highways’ Transport Data Feeds. See the [official API terms](https://developer
 A daily snapshot is not live traffic and expires after ten minutes for live use.
 No National Highways permanent speed-limit dataset is claimed.
 
-## Daily publication and setup
-
-This public repository contains data-building utilities, not private app source.
-The new app reads the independent region catalog, selects available coverage by
-location and verifies the region manifest and map identity. Catalog entries can
-refer to older unchanged assets of the same region. A failed build or upload
-retains the previously selected region generation.
-
-Two UTC triggers plus a tested UK-time guard account for BST. Autumn uses the
-first 01:00; the spring day without 01:00 uses 02:00. Initial expansion continues
-automatically between daily checks, one region per job, until there is no more
-work. No job constructs a whole-UK PMTiles file.
-
-Required owner setup:
+## Setup
 
 - App repository Actions **variable** `DRIVEMATE_MAP_RELEASES_BASE_URL`:
   `https://github.com/phuk-prog/drivemate-map/releases/download`. Rebuild the APK
@@ -176,19 +121,12 @@ Required owner setup:
   Its code is used on the runner and is not published in this repository.
   The legacy automatic DMN builder remains disabled until a region-aware private source is configured; the regional Valhalla graph is published as a separate capability.
 
-The regional workflow runs the full source regression suite and generator self-checks.
-Before a region is published it verifies every generated map payload, checks detailed
-roads at declared Stockport/Manchester samples, tests routes from the regional graph,
-records source availability and binds validation to exact asset hashes. These checks
-establish archive integrity and sampled regional behaviour, not full on-device or
-complete real-world coverage certification.
-
 ## Additional information sources
 
 | Information | Source and present integration | Access or remaining work |
 |---|---|---|
 | Roads, buildings, lanes, restrictions, limits, cameras, hazards, addresses | OSM via Geofabrik; generated by the map workflow | ODbL and attribution; source mapping may be incomplete |
-| Regional maps and low-zoom national base | Generated from the same verified UK PMTiles | App regional-selection UI is separate |
+| Regional maps and the UK overview | Regional builds and `uk_overview.py` | The app offers Everything, Chosen regions and Along my route |
 | Places and businesses | OSM, Overture and OS Open Names | Sources and attribution recorded; upstream failures reported |
 | Search and postcodes | OS Open Names; NI gazetteers where available | NI postcode reuse is not included |
 | Congestion charges and emissions boundaries | TfL open boundaries; available mapped zones | Boundaries do not establish current tariffs or exemptions |
