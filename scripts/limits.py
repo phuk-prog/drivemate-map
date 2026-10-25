@@ -75,8 +75,13 @@ WALES = [(-3.32, 53.40), (-3.10, 53.27), (-2.93, 53.19), (-2.92, 53.10), (-2.76,
          (-4.15, 52.72), (-4.85, 52.75), (-4.70, 53.00), (-4.75, 53.33), (-4.45, 53.48), (-3.85, 53.38)]
 
 
-def parse_speed(raw):
-    """Same rules as the app (RoadAlerts.parseSpeed): '30 mph', '50', UK national limit codes."""
+def parse_speed(raw, at=None):
+    """Same rules as the app (RoadAlerts.parseSpeed): '30 mph', '50', UK national limit codes.
+
+    "GB:urban" is the default limit of a restricted road (street lights): 30 mph in England,
+    Scotland and Northern Ireland, 20 mph in Wales since 17 Sep 2023 (gov.uk/speed-limits). [at]
+    is a (lon, lat) on the road; without it the English default is assumed.
+    """
     s = (raw or "").strip().lower()
     if not s:
         return None
@@ -85,7 +90,7 @@ def parse_speed(raw):
     if s.endswith("nsl_dual") or s in ("gb:motorway", "uk:motorway"):
         return 70 * MPH
     if s.endswith(":urban") and (s.startswith("gb") or s.startswith("uk")):
-        return 30 * MPH
+        return (20 if at is not None and in_wales(*at) else 30) * MPH
     m = re.search(r"\d+", s)
     if not m:
         return None
@@ -514,7 +519,7 @@ def build(src, out_dir, motorways_src=None, checks_path=None, roads=None, cache_
                 c = (feat.get("geometry") or {}).get("coordinates") or []
                 if not c or not isinstance(c[0], list):
                     continue
-                kmh = parse_speed(t.get("maxspeed"))
+                kmh = parse_speed(t.get("maxspeed"), c[0])
                 if kmh is None or (mph_of(kmh) == 30 and in_wales(*c[0])):
                     tiles.update(tile_of(p[0], p[1]) for p in c)
         budget = int(os.environ.get("MAPILLARY_SIGNS_MAX_FETCH", "4000"))
@@ -532,7 +537,7 @@ def build(src, out_dir, motorways_src=None, checks_path=None, roads=None, cache_
         for wid, lst in per_way.items():
             t, c = roads_hit[wid]
             ow = oneway_of(t)
-            base = parse_speed(t.get("maxspeed"))
+            base = parse_speed(t.get("maxspeed"), c[0])
             both, single = sign_pieces(c, ow, lst)
             cum = cumulative(c)
             name = t.get("name") or t.get("ref") or ""
@@ -568,8 +573,9 @@ def build(src, out_dir, motorways_src=None, checks_path=None, roads=None, cache_
             props = feat.get("properties") or {}
             if "highway" not in props:
                 continue
-            kmh = parse_speed(props.get("maxspeed"))
             geom = feat.get("geometry") or {}
+            coords = geom.get("coordinates") or []
+            kmh = parse_speed(props.get("maxspeed"), coords[0] if coords and isinstance(coords[0], list) else None)
             if kmh is None or geom.get("type") != "LineString":
                 continue
             wid = props.get("@id") or feat.get("id") or ""
