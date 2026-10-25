@@ -354,10 +354,10 @@ jobs:
         run: |
           set -o pipefail
           # Speed bumps, hazard signs, cameras, level crossings, toll booths, schools, traffic lights,
-          # stop signs and well-known named places: on the phone, so they work with no signal.
+          # stop signs, mini-roundabouts and well-known named places: on the phone, so they work with no signal.
           python3 scripts/roadinfo.py --selftest
           osmium tags-filter work/base.osm.pbf \
-            n/traffic_calming=bump,hump,table,cushion,yes n/hazard n/highway=speed_camera,traffic_signals,stop \
+            n/traffic_calming=bump,hump,table,cushion,yes n/hazard n/highway=speed_camera,traffic_signals,stop,mini_roundabout \
             n/railway=level_crossing n/barrier=toll_booth w/amenity=school \
             nwr/amenity=fuel,pub,place_of_worship,fast_food nwr/shop=supermarket \
             -o work/roadinfo.osm.pbf --overwrite

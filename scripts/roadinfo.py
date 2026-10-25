@@ -14,7 +14,7 @@ answer, so the app's existing reader (RoadAlerts.parseFile) reads it unchanged:
      {"type": "way", "id": 2, "center": {"lat": 53.4, "lon": -2.1}, "tags": {...}}, ...]}
 Same choice of things as the app's live question:
   speed bumps, hazard signs, speed cameras, level crossings, toll booths, traffic lights and stop
-  signs (points); schools (outlines, as their middle); named fuel stations, pubs, places of
+  signs and mini-roundabouts (points); schools (outlines, as their middle); named fuel stations, pubs, places of
   worship, fast food and supermarkets (points or outlines).
 A thing goes in the square it is in, and also in the next square when it is within EDGE degrees
 of the edge, so a route running along an edge still finds it.
@@ -32,7 +32,7 @@ KEEP = ("traffic_calming", "hazard", "highway", "railway", "barrier", "maxspeed"
 CALMING = re.compile(r"^(bump|hump|table|cushion|yes)$")
 PLACE_AMENITY = re.compile(r"^(fuel|pub|place_of_worship|fast_food)$")
 KIND_ORDER = ("speed bump", "hazard sign", "speed camera", "level crossing", "toll booth",
-              "traffic lights", "stop sign", "school", "named place")
+              "traffic lights", "stop sign", "mini roundabout", "school", "named place")
 
 
 def kind_of(otype, tags):
@@ -55,6 +55,8 @@ def kind_of(otype, tags):
             return "traffic lights"
         if hw == "stop":
             return "stop sign"
+        if hw == "mini_roundabout":
+            return "mini roundabout"
         return None
     if otype == "way" and tags.get("amenity") == "school":
         return "school"
@@ -172,10 +174,11 @@ def selftest():
         feat("node", 10, pt(53.30, -2.30), hazard="animal_crossing"),
         feat("node", 11, pt(53.4999, -1.9999), highway="speed_camera", maxspeed="30 mph", direction="90"),  # corner -> 4
         feat("relation", 12, {"type": "MultiPolygon", "coordinates": [[sq]]}, amenity="school"),  # schools: ways only
+        feat("node", 13, pt(53.30, -2.30), highway="mini_roundabout", direction="clockwise"),
     ]
     squares, counts = build(lines)
     assert counts == {"speed bump": 1, "traffic lights": 1, "named place": 3, "school": 1,
-                      "hazard sign": 1, "speed camera": 1}, counts
+                      "hazard sign": 1, "speed camera": 1, "mini roundabout": 1}, counts
     ids = lambda key: sorted((e["type"], e["id"]) for e in squares.get(key, []))
     assert ("node", 1) in ids((106, -5)) and ("node", 1) not in ids((107, -5))
     assert ("node", 3) in ids((106, -5)) and ("node", 3) in ids((107, -5))
@@ -188,13 +191,14 @@ def selftest():
     school = els[("way", 7)]
     assert school["center"] == {"lat": 53.405, "lon": -2.195} and "lat" not in school, school
     assert school["tags"] == {"amenity": "school", "name": "St Mary's"}
+    assert els[("node", 13)]["tags"] == {"highway": "mini_roundabout", "direction": "clockwise"}
     assert els[("node", 11)]["tags"] == {"highway": "speed_camera", "maxspeed": "30 mph", "direction": "90"}
     with tempfile.TemporaryDirectory() as d:
         write(squares, d)
         names = sorted(os.listdir(d))
         assert names == ["roadinfo-106_-4.json", "roadinfo-106_-5.json", "roadinfo-107_-4.json", "roadinfo-107_-5.json"], names
         data = json.load(open(os.path.join(d, "roadinfo-106_-5.json"), encoding="utf-8"))
-        assert data["source"] == SOURCE and isinstance(data["elements"], list) and len(data["elements"]) == 8
+        assert data["source"] == SOURCE and isinstance(data["elements"], list) and len(data["elements"]) == 9
         for e in data["elements"]:
             assert e["type"] in ("node", "way", "relation") and isinstance(e["id"], int) and isinstance(e["tags"], dict)
             assert ("lat" in e and "lon" in e) if e["type"] == "node" else ("center" in e)
