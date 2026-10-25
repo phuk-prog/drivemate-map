@@ -20,7 +20,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
+import daily_schedule
 import daily_source_probe
+import osm_changes
 import publish_map_data as publisher
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +35,9 @@ INITIAL = [
     {'id': 'manchester', 'name': 'Manchester area', 'bounds': [-2.35, 53.36, -2.12, 53.56],
      'source_url': GM_SOURCE, 'sample': [-2.2309, 53.4774], 'inland': True},
 ]
+# Crown dependencies outside Geofabrik's united-kingdom tree, published as
+# their own regions (owner, 2026-10-25).
+ISLANDS = ('isle-of-man', 'guernsey-jersey')
 ID = re.compile(r'[a-z0-9][a-z0-9-]{0,70}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
 
@@ -108,6 +113,15 @@ def expansion_plan(index):
                         'source_url': url, 'inland': key == 'greater-manchester'})
     if not choices:
         raise ValueError('No UK regional extracts discovered; refusing UK fallback')
+    for key in ISLANDS:
+        feature = records.get(key)
+        if not feature:
+            continue
+        props = feature['properties']
+        url = daily_source_probe.source_url(props.get('urls', {}).get('pbf'))
+        choices.append({'id': key, 'name': props.get('name', key),
+                        'bounds': flatten_coordinates(feature.get('geometry')),
+                        'source_url': url, 'inland': False})
     choices.append({'id': 'northern-ireland-area', 'name': 'Northern Ireland and border area',
                     'bounds': [-8.2, 54.0, -5.3, 55.5],
                     'source_url': 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',
@@ -197,16 +211,38 @@ def select_sources(plan, catalog, event_name):
     return active, None
 
 
-def choose_next(plan, catalog, signals, pipeline_sha, supplement_version):
-    """Update changed existing regions first; otherwise expand by exactly one region."""
+def choose_next(plan, catalog, signals, pipeline_sha, supplement_version, changes_slot=None, skip=()):
+    """Update changed existing regions first; otherwise expand by exactly one region.
+
+    A region is changed when its Geofabrik extract, the pipeline, the supplementary
+    sources or the 01:00 / 14:00 OSM change slot moved on. Regions in [skip] (failed
+    earlier in this update) and regions whose change signal could not be read are
+    left for the next update rather than stopping every other region.
+    """
     regions = validate_catalog(catalog)['regions']
     for region in plan:
+        if region['id'] in skip or region['source_url'] not in signals:
+            continue
         old = regions.get(region['id'])
         if old is not None and (old.get('observed_source_md5') != signals[region['source_url']]
                 or old['pipeline_sha256'] != pipeline_sha
-                or old.get('supplement_version') != supplement_version):
+                or old.get('supplement_version') != supplement_version
+                or (changes_slot is not None and old.get('osm_changes_slot') != changes_slot)):
             return region
-    return next((r for r in plan if r['id'] not in regions), None)
+    return next((r for r in plan if r['id'] not in regions and r['id'] not in skip
+                 and r['source_url'] in signals), None)
+
+
+def read_signals(urls, reader=None):
+    """Change signals for [urls]; one unreachable source only holds back its own regions."""
+    reader = reader or read_source_signal
+    signals = {}
+    for url in sorted(urls):
+        try:
+            signals[url] = reader(url)
+        except Exception as exc:
+            print(f'::warning::Change signal unavailable, regions from it wait for the next update: {url}: {exc}', flush=True)
+    return signals
 
 
 def publish_catalog(github, previous, updated, directory):
@@ -323,7 +359,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True)
     parser.add_argument('--work', type=Path, default=Path('work/regional'))
+    parser.add_argument('--skip', default='', help='Comma-separated regions that failed earlier in this update')
     args = parser.parse_args()
+    skip = {s for s in args.skip.split(',') if ID.fullmatch(s)}
     args.work.mkdir(parents=True, exist_ok=True)
     github = publisher.GitHub(args.repo)
     index = read_json_url('https://download.geofabrik.de/index-v1.json')
@@ -345,16 +383,26 @@ def main():
     except Exception:
         os_version = 'unavailable'
     version = json.dumps({'overture': overture_version, 'os-open-names': os_version}, sort_keys=True)
+    plan_all = plan
+    plan = [r for r in plan if r['id'] not in skip]
+    if skip:
+        print('Held back after failing earlier in this update: ' + ', '.join(sorted(skip)), flush=True)
+    slot = daily_schedule.latest_slot(datetime.now(timezone.utc))
+    changes_slot = slot.strftime('%Y-%m-%dT%H:%MZ')
     active, next_unbuilt = select_sources(plan, catalog, os.environ.get('GITHUB_EVENT_NAME', 'workflow_dispatch'))
-    print(f"Published map regions: {len(catalog['regions'])} of {len(plan)} planned; "
+    print(f"Published map regions: {len(catalog['regions'])} of {len(plan_all)} planned; "
           f"checking {len(active)} distinct source extracts", flush=True)
     # During rollout a manual/push/auto-dispatched run only checks the NEXT
     # unbuilt source; one failing old-source endpoint cannot stop expansion.
     # Scheduled daily runs additionally inspect existing map change signals.
-    signals = {url: read_source_signal(url) for url in sorted(active)}
-    region = next_unbuilt or choose_next(plan, catalog, signals, fingerprint, version)
+    signals = read_signals(active)
+    if next_unbuilt and next_unbuilt['source_url'] not in signals:
+        next_unbuilt = None
+    region = next_unbuilt or choose_next(plan, catalog, signals, fingerprint, version, changes_slot)
     if region is None:
         print('All regional inputs unchanged; no downloads or publication required')
+        if skip:
+            print('::warning::Not updated this time (retried at the next update): ' + ', '.join(sorted(skip)))
         return
     print(f"Selected next verified map region: {region['id']}", flush=True)
     root = args.work / region['id']
@@ -372,6 +420,20 @@ def main():
             digest.update(block)
     if digest.hexdigest() != signals[region['source_url']]:
         raise ValueError('Regional upstream source changed during download; no publication')
+    # Bring the extract up to this update slot with the shared hourly changes. If the
+    # replication server is down the extract is used as published and the region is
+    # rebuilt again at the next slot.
+    try:
+        changes = osm_changes.ensure(github, slot, args.work / 'changes')
+        updated = args.work / 'updated.osm.pbf'
+        osm_changes.apply(source, changes, updated)
+        source.unlink()
+        source = updated
+        applied_slot = changes_slot
+        print('Applied OpenStreetMap changes up to ' + changes_slot, flush=True)
+    except Exception as exc:
+        applied_slot = 'unavailable'
+        print(f'::warning::OpenStreetMap hourly changes unavailable; using the Geofabrik extract as published: {exc}', flush=True)
     clipped = root / 'regional-source.osm.pbf'
     run('osmium', 'extract', '-b', ','.join(map(str, region['bounds'])), '-s', 'complete_ways',
         source, '-o', clipped, '--overwrite')
@@ -381,11 +443,14 @@ def main():
     content = publisher.digest(canonical)
     canonical.unlink()
     checkpoint = {'content_sha256': content, 'pipeline_sha256': fingerprint,
-                  'observed_source_md5': signals[region['source_url']], 'supplement_version': version}
+                  'observed_source_md5': signals[region['source_url']], 'supplement_version': version,
+                  'osm_changes_slot': changes_slot, 'osm_changes': applied_slot}
     prior = catalog['regions'].get(region['id'])
     if prior and prior['content_sha256'] == content and prior['pipeline_sha256'] == fingerprint and prior.get('supplement_version') == version:
         updated = copy.deepcopy(catalog)
         updated['regions'][region['id']]['observed_source_md5'] = signals[region['source_url']]
+        updated['regions'][region['id']]['osm_changes_slot'] = changes_slot
+        updated['regions'][region['id']]['osm_changes'] = applied_slot
         publish_catalog(github, catalog, updated, root)
         print('Regional road content unchanged; only upstream observation advanced')
     else:
@@ -396,7 +461,10 @@ def main():
         print('Published independent region: ' + region['id'])
     # Deliberate workflow_dispatch starts the next serialized regional check/build.
     # Unlike token pushes, dispatches can start a follow-on Actions run.
-    run('gh', 'workflow', 'run', 'regional-maps.yml', '--repo', args.repo, '--ref', 'main')
+    dispatch = ['gh', 'workflow', 'run', 'regional-maps.yml', '--repo', args.repo, '--ref', 'main']
+    if skip:
+        dispatch += ['-f', 'skip=' + ','.join(sorted(skip))]
+    run(*dispatch)
 
 
 if __name__ == '__main__':

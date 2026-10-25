@@ -4,8 +4,10 @@ Open map data for DriveMate, built **region first** by
 [regional-maps.yml](.github/workflows/regional-maps.yml). Stockport is published
 first, then Manchester, then Greater Manchester, Wales, Scotland and Northern
 Ireland, followed by the smallest available English regional extracts ordered
-outwards. A successful publication automatically starts the next regional job.
-There is no whole-UK archive build in this rollout.
+outwards, plus the **Isle of Man** and the **Channel Islands** (Jersey, Guernsey,
+Alderney, Sark). A successful publication automatically starts the next regional job.
+There is no whole-UK *detailed* archive. Zoomed-out views use the separate
+low-detail **UK overview map** (below).
 
 Each region has its own immutable map, source snapshot, mapped lanes/limits,
 places/search, warnings, feature/relation packs, signs and regional Valhalla graph.
@@ -16,18 +18,38 @@ before the shared catalog advances. Failed later shards never mark a region read
 Only regions listed there are available. Coverage remains explicitly **partial**;
 completing the extract list alone is not proof that every UK road was verified.
 
-Every day at **01:00 Europe/London**, GitHub checks the active regional source
-checksums, Overture release, OS distribution identity and builder identity. A
-changed upstream extract is downloaded regionally and compared using canonical
-local OSM content. Unchanged regional content is not rebuilt. Identical generated
-assets are reused by SHA-256 from earlier immutable releases of the same region.
-During initial expansion, automatic follow-on runs prioritise missing regions
-instead of repeatedly downloading checksums for every already-published region.
-Scheduled daily runs still check the published regions for source changes and
-process the first required update before expanding. Network checksum failures
-are retried with backoff; a failed checksum never results in publication.
-Once all regions are published, follow-on runs check existing sources for updates.
-No change means no map upload. GitHub scheduling is best effort and may start later than the target time.
+Twice a day, at **01:00 and 14:00 Europe/London** (summer and winter), GitHub
+starts an update. Each region's Geofabrik extract is brought up to that time with
+the official OpenStreetMap **hourly changes** (`osm_changes.py`): the diffs for the
+30 hours before the update time are merged **once** into one change file, kept on
+the `map-data-sources` release and applied by every region in that update, so the
+14:00 update carries the morning's edits even though Geofabrik publishes once a day.
+Each region is then compared using canonical local OSM content; unchanged content
+is not rebuilt and identical assets are reused by SHA-256. Overture, OS Open Names
+and builder identity changes also trigger a rebuild.
+
+Reliability:
+- every download is retried with waits in between;
+- the 900 MB sea outlines are kept in the Actions cache and a copy is kept on the
+  `map-data-sources` release, used whenever osmdata.openstreetmap.de is slow;
+- **one failed region does not stop the update**: it is held back (the `skip` input)
+  and the update carries on with the next region; it is retried at the next update;
+- a source whose change signal cannot be read holds back only its own regions;
+- if the hourly changes are unavailable the region is built from the extract as
+  published and noted (`osm_changes: unavailable` in the catalog).
+
+A failed check or upload never results in publication. GitHub scheduling is best
+effort and may start later than the target time.
+
+## UK overview map
+
+[uk-overview.yml](.github/workflows/uk-overview.yml) builds one low-detail map of
+the whole UK, Isle of Man and Channel Islands, zoom 0 to 10, at the same 01:00 and
+14:00 times: sea, lakes, woods, parks, motorways, A and B roads, ferries and towns
+(`uk_overview.py`). It is checked for roads near eight towns across all nations and
+both island groups, uploaded to its own immutable `map-data-overview-r…` tag, and only
+then the pointer `map-data-overview/overview.json` moves to it. The app draws it when
+zoomed out and the regional detail when zoomed in. It never touches the regional catalog.
 
 The old `map-data.yml` whole-UK-first workflow is disabled. Its scripts and tests
 remain as historical format/compatibility references; it is not the active build.
