@@ -211,3 +211,30 @@ class FingerprintTests(unittest.TestCase):
             self.assertEqual(before, fp())
             (root / 'scripts/build.py').write_text('x = 2\n')
             self.assertNotEqual(before, fp())
+
+
+class RateLimitTests(unittest.TestCase):
+    def test_release_files_come_from_the_public_address_not_the_api(self):
+        import io
+        from unittest.mock import patch
+        import publish_map_data as publisher
+        seen = []
+        def opener(url, timeout):
+            seen.append(url)
+            return io.BytesIO(b'{"files": {}}')
+        github = publisher.GitHub('phuk-prog/drivemate-map')
+        with tempfile.TemporaryDirectory() as tmp, patch('urllib.request.urlopen', opener), \
+                patch.object(github, 'run', side_effect=AssertionError('API used')):
+            path = github.download('map-data-region-kent-r1-a1', 'manifest.json', tmp)
+            self.assertEqual(b'{"files": {}}', path.read_bytes())
+        self.assertEqual(['https://github.com/phuk-prog/drivemate-map/releases/download/map-data-region-kent-r1-a1/manifest.json'], seen)
+
+    def test_a_rate_limited_download_waits_instead_of_failing(self):
+        from unittest.mock import patch
+        import subprocess as sp
+        import publish_map_data as publisher
+        github = publisher.GitHub('phuk-prog/drivemate-map')
+        results = iter([sp.CompletedProcess([], 1, '', 'API rate limit exceeded'), sp.CompletedProcess([], 0, 'ok', '')])
+        with patch('subprocess.run', lambda *a, **k: next(results)), patch.object(github, 'wait_for_rate_limit') as wait:
+            self.assertEqual('ok', github.run('release', 'download', 'map-data-x', '--repo', github.repo))
+        wait.assert_called_once()
