@@ -32,8 +32,10 @@ Reliability:
 - every download is retried with waits in between;
 - the 900 MB sea outlines are kept in the Actions cache and a copy is kept on the
   `map-data-sources` release, used whenever osmdata.openstreetmap.de is slow;
-- **one failed region does not stop the update**: it is held back (the `skip` input)
-  and the update carries on with the next region; it is retried at the next update;
+- regions are **built six at a time** (plan → parallel builds → one catalogue change), so
+  a full UK update takes about an hour; **one failed region does not stop the others**;
+  it stays behind and the hourly `map-watchdog.yml` starts another update for it;
+- the watchdog also restarts an update GitHub dropped or delayed, and a stale overview;
 - a source whose change signal cannot be read holds back only its own regions;
 - if the hourly changes are unavailable the region is built from the extract as
   published and noted (`osm_changes: unavailable` in the catalog).
