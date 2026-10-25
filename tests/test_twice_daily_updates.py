@@ -238,3 +238,19 @@ class RateLimitTests(unittest.TestCase):
         with patch('subprocess.run', lambda *a, **k: next(results)), patch.object(github, 'wait_for_rate_limit') as wait:
             self.assertEqual('ok', github.run('release', 'download', 'map-data-x', '--repo', github.repo))
         wait.assert_called_once()
+
+
+class OfficialSpeedLimitTests(unittest.TestCase):
+    """gov.uk/speed-limits (fetched 2026-10-25): built-up areas 30 mph in England, Scotland and
+    Northern Ireland, 20 mph in Wales; single carriageway 60; dual carriageway and motorway 70."""
+    def test_national_limits_for_cars(self):
+        import limits
+        mph = lambda raw, at=None: round(limits.parse_speed(raw, at) / limits.MPH)
+        self.assertEqual(60, mph('GB:nsl_single'))
+        self.assertEqual(70, mph('GB:nsl_dual'))
+        self.assertEqual(70, mph('GB:motorway'))
+        self.assertEqual(30, mph('GB:urban', (-2.2426, 53.4808)))   # Manchester
+        self.assertEqual(30, mph('GB:urban', (-3.1883, 55.9533)))   # Edinburgh
+        self.assertEqual(20, mph('GB:urban', (-3.1791, 51.4816)))   # Cardiff
+        self.assertEqual(20, mph('GB:urban', (-3.8262, 53.2800)))   # Conwy
+        self.assertEqual(30, mph('30 mph', (-3.1791, 51.4816)))     # a signed 30 in Wales stays 30
