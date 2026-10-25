@@ -1,6 +1,6 @@
-name: Map up to date (test 1.4)
+name: Map up to date
 
-# Owner, 18 Oct 2026 (plan test 1.4): every day, check the published map is Geofabrik's current
+# Every day, check the published map is Geofabrik's current
 # OpenStreetMap extract (or at most 8 days behind it), that DMN's road pieces come from the same
 # snapshot, and that the snapshot is at most 8 days old (scripts/freshness_check.py).
 

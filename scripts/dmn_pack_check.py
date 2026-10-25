@@ -1,7 +1,6 @@
-"""Checks DMN's UK road pieces (release "dmn-uk") as the phone will get them: test 1.2 part A.
+"""Checks DMN's UK road pieces (release "dmn-uk") as the phone will get them.
 
-Owner, 18 Oct 2026 (plan test 1.2: offline map package checked, damaged file refused, safe update
-and rollback). Every piece the index lists must be there, the size and SHA-256 the index gives, and
+Offline map package checked, damaged file refused, safe update and rollback. Every piece the index lists must be there, the size and SHA-256 the index gives, and
 open completely with a strict reader of the DMNPACK2 layout (DriveMate-Navigation tools/dmn_pack.py;
 the app's reader is app/.../dmn/DmnPack.kt): every count, index and code inside its range, no bytes
 left over, and metadata saying the right square and the OpenStreetMap credit. Anything else is

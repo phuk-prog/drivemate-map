@@ -57,7 +57,7 @@ class RoutingWorkflowTest(unittest.TestCase):
         download = next(i for i, s in enumerate(steps) if s.get('name', '').startswith('OpenStreetMap base'))
         self.assertLess(capacity, download)
         self.assertIn('unified_preflight.py', steps[capacity]['run'])
-        # Mapillary removed entirely (owner decision, 10 Oct 2026): no arrow step, OSM-only limits.
+        # Mapillary removed entirely: no arrow step, OSM-only limits.
         self.assertFalse(any(s.get('name', '').startswith('Painted lane arrows') for s in steps))
         limits = next(s for s in steps if s.get('name', '').startswith('Speed limits'))
         self.assertIn('scripts/limits.py', limits['run'])

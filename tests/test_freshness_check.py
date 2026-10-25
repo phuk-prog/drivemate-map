@@ -1,4 +1,4 @@
-"""Test 1.4 (map up to date): the freshness check passes only on recorded facts."""
+"""The freshness check passes only on recorded facts."""
 import hashlib
 import json
 import sys

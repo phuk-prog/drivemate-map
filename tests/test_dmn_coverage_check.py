@@ -1,4 +1,4 @@
-"""Test 1.5 (coverage): missing squares and places without roads are found."""
+"""Missing squares and places without roads are found."""
 import json
 import sys
 import tempfile

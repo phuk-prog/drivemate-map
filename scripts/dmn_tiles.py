@@ -1,5 +1,5 @@
-"""DMN's UK road map in pieces for the DriveMate app (owner, 18 Oct 2026: "DMN can use the online
-map, downloading and keeping the bits needed").
+"""DMN's UK road map in pieces for the DriveMate app: it uses the online
+map, downloading and keeping the bits needed.
 
 Squares of a quarter degree (dmn-<floor(lat*4)>_<floor(lon*4)>.dmnpack, every road) and one UK
 main-roads piece (dmn-main-uk.dmnpack: motorways and trunk roads), all written by DMN's own map
@@ -106,7 +106,7 @@ def main_roads(a):
         "r/type=restriction", "-o", main_pbf, "--overwrite")
     meta = pack(a.dmn, main_pbf, out / "dmn-main-uk.dmnpack", ["--source", a.source, "--main"])
     (out / "main.json").write_text(json.dumps(meta, indent=1))
-    # Test 1.3 (owner, 18 Oct 2026): the same main roads in 2-degree blocks, so a long trip loads only
+    # The same main roads in 2-degree blocks, so a long trip loads only
     # the blocks along its way (the whole-UK piece is kept for older app versions)
     blocks = {(y // 8, x // 8) for y, x in road_squares(main_pbf, work)}
     for by, bx in sorted(blocks):

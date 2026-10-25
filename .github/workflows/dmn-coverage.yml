@@ -1,6 +1,6 @@
-name: DMN road pieces cover the UK (test 1.5)
+name: DMN road pieces cover the UK
 
-# Owner, 18 Oct 2026 (plan test 1.5): every square where DriveMate's own OpenStreetMap snapshot has
+# Every square where DriveMate's own OpenStreetMap snapshot has
 # car roads has a road piece, and named inhabited islands, border towns and the far corners each
 # have roads in their piece (scripts/dmn_coverage_check.py). Runs after each weekly road-piece build.
 

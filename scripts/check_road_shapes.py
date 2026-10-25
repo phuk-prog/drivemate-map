@@ -1,4 +1,4 @@
-"""Test 2.18: measure named or numbered road bends against the archived OSM vertices.
+"""Measure named or numbered road bends against the archived OSM vertices.
 
 Compare both maps on the same snapshot, at every driving zoom, including overzoom.
 Distances are logical screen pixels on MapLibre's 512-pixel world tiles, independent
@@ -104,7 +104,7 @@ def tile_roads(reader, area, zoom):
 def compare(old, new, directory):
     from pmtiles.reader import MmapSource, Reader
     failures = []
-    print('## Test 2.18: bend error against our own archived OSM\n')
+    print('## Bend error against our own archived OSM\n')
     print('Named or numbered mapped bends at six UK places; p95 distance in logical screen pixels.\n'
           'This is a comparison with the old map, not a universal smoothness threshold.\n')
     print('| Place | Driving zoom | OSM vertices compared | Old p95 px | New p95 px | Result |\n|---|---|---|---|---|---|')
