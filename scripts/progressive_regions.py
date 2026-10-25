@@ -273,7 +273,7 @@ def publish_catalog(github, previous, updated, directory):
                                {CATALOG_FILE: publisher.metadata(target, CATALOG_TAG)}, CATALOG_TAG)
 
 
-def publish_region(github, region, out, tag, checkpoint, previous, directory):
+def publish_region(github, region, out, tag, checkpoint, previous, directory, promote=True):
     out = Path(out)
     publisher.checked_tag(tag)
     files = {}
@@ -357,6 +357,9 @@ def publish_region(github, region, out, tag, checkpoint, previous, directory):
              'published_utc': datetime.now(timezone.utc).isoformat(),
              'manifest': publisher.metadata(manifest_path, tag),
              'map': {**expected_files['drivemate-v1.pmtiles'], 'name': 'drivemate-v1.pmtiles', 'layout': 'drivemate-v1'}}
+    if not promote:
+        # Parallel builds: the files are uploaded and verified; one promote job adds the entry.
+        return entry
     updated = copy.deepcopy(previous)
     updated['regions'][region['id']] = entry
     publish_catalog(github, previous, updated, directory)
@@ -367,27 +370,18 @@ def run(*args, **kwargs):
     subprocess.run([str(x) for x in args], check=True, **kwargs)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', required=True)
-    parser.add_argument('--work', type=Path, default=Path('work/regional'))
-    parser.add_argument('--skip', default='', help='Comma-separated regions that failed earlier in this update')
-    args = parser.parse_args()
-    skip = {s for s in args.skip.split(',') if ID.fullmatch(s)}
-    args.work.mkdir(parents=True, exist_ok=True)
-    github = publisher.GitHub(args.repo)
+def context(github, work):
+    """The inputs every step of one update agrees on: plan, catalogue, identities, slot."""
     index = read_json_url('https://download.geofabrik.de/index-v1.json')
     plan = expansion_plan(index)
-    catalog = load_catalog(github, args.work / 'previous')
+    catalog = load_catalog(github, Path(work) / 'previous')
     fingerprint = daily_source_probe.pipeline_fingerprint(ROOT, includes=('.github/workflows/regional-maps.yml',))['pipeline_sha256']
     release = subprocess.run(['overturemaps', 'releases', 'latest'], capture_output=True, text=True)
     overture_version = release.stdout.strip().splitlines()[-1] if release.returncode == 0 and release.stdout.strip() else 'unknown'
-    version = overture_version
-    if not re.fullmatch(r'20\d\d-\d\d-\d\d\.\d+', version):
-        version = 'unknown'
-    overture_version = version
+    if not re.fullmatch(r'20\d\d-\d\d-\d\d\.\d+', overture_version):
+        overture_version = 'unknown'
     # Supplementary source releases are independent of OSM changes. Include the
-    # official OS distribution digest/name in daily change detection.
+    # official OS distribution digest/name in change detection.
     import regional_supplements
     try:
         listing = read_json_url(regional_supplements.API, maximum=1_000_000)
@@ -395,30 +389,51 @@ def main():
     except Exception:
         os_version = 'unavailable'
     version = json.dumps({'overture': overture_version, 'os-open-names': os_version}, sort_keys=True)
-    plan_all = plan
-    plan = [r for r in plan if r['id'] not in skip]
-    if skip:
-        print('Held back after failing earlier in this update: ' + ', '.join(sorted(skip)), flush=True)
     slot = daily_schedule.latest_slot(datetime.now(timezone.utc))
-    changes_slot = slot.strftime('%Y-%m-%dT%H:%MZ')
-    active, next_unbuilt = select_sources(plan, catalog, os.environ.get('GITHUB_EVENT_NAME', 'workflow_dispatch'))
-    print(f"Published map regions: {len(catalog['regions'])} of {len(plan_all)} planned; "
-          f"checking {len(active)} distinct source extracts", flush=True)
-    # During rollout a manual/push/auto-dispatched run only checks the NEXT
-    # unbuilt source; one failing old-source endpoint cannot stop expansion.
-    # Scheduled daily runs additionally inspect existing map change signals.
-    signals = read_signals(active)
-    if next_unbuilt and next_unbuilt['source_url'] not in signals:
-        next_unbuilt = None
-    region = next_unbuilt or choose_next(plan, catalog, signals, fingerprint, version, changes_slot)
-    if region is None:
-        print('All regional inputs unchanged; no downloads or publication required')
-        if skip:
-            print('::warning::Not updated this time (retried at the next update): ' + ', '.join(sorted(skip)))
-        return
-    print(f"Selected next verified map region: {region['id']}", flush=True)
+    return {'plan': plan, 'catalog': catalog, 'fingerprint': fingerprint, 'overture_version': overture_version,
+            'version': version, 'slot': slot.isoformat(), 'changes_slot': slot.strftime('%Y-%m-%dT%H:%MZ')}
+
+
+def due_regions(plan, catalog, signals, fingerprint, version, changes_slot, limit=256):
+    """Every region this update must build: changed published regions first, then unbuilt ones."""
+    due, skip = [], set()
+    while len(due) < limit:
+        region = choose_next(plan, catalog, signals, fingerprint, version, changes_slot, skip)
+        if region is None:
+            break
+        due.append(region)
+        skip.add(region['id'])
+    return due
+
+
+def cmd_plan(args, github):
+    ctx = context(github, args.work)
+    signals = read_signals({r['source_url'] for r in ctx['plan']})
+    due = due_regions(ctx['plan'], ctx['catalog'], signals, ctx['fingerprint'], ctx['version'], ctx['changes_slot'])
+    print(f"Published map regions: {len(ctx['catalog']['regions'])} of {len(ctx['plan'])} planned; "
+          f"{len(due)} to build for {ctx['changes_slot']}", flush=True)
+    if due:
+        # One shared change file per slot, made here once so the parallel builds only download it.
+        try:
+            osm_changes.ensure(github, datetime.fromisoformat(ctx['slot']), args.work / 'changes')
+        except Exception as exc:
+            print(f'::warning::OpenStreetMap hourly changes unavailable for this update: {exc}', flush=True)
+    document = {key: ctx[key] for key in ('fingerprint', 'overture_version', 'version', 'slot', 'changes_slot')}
+    document.update({'signals': signals, 'regions': {r['id']: r for r in due}})
+    Path(args.out).write_text(json.dumps(document, sort_keys=True))
+    print('matrix=' + json.dumps([r['id'] for r in due]))
+    return document
+
+
+def cmd_build(args, github):
+    """Build one planned region and upload its files; writes its catalogue entry, promotes nothing."""
+    planned = json.loads(Path(args.plan).read_text())
+    region = planned['regions'][args.region]
+    signals, fingerprint, version = planned['signals'], planned['fingerprint'], planned['version']
+    changes_slot, slot = planned['changes_slot'], datetime.fromisoformat(planned['slot'])
+    catalog = load_catalog(github, args.work / 'previous')
     root = args.work / region['id']
-    root.mkdir()
+    root.mkdir(parents=True)
     (root / 'region.json').write_text(json.dumps(region))
     source = args.work / 'source.osm.pbf'
     run('curl', '--fail', '--silent', '--show-error', '--location', '--proto', '=https',
@@ -433,8 +448,7 @@ def main():
     if digest.hexdigest() != signals[region['source_url']]:
         raise ValueError('Regional upstream source changed during download; no publication')
     # Bring the extract up to this update slot with the shared hourly changes. If the
-    # replication server is down the extract is used as published and the region is
-    # rebuilt again at the next slot.
+    # replication server is down the extract is used as published and noted.
     try:
         changes = osm_changes.ensure(github, slot, args.work / 'changes')
         updated = args.work / 'updated.osm.pbf'
@@ -459,24 +473,63 @@ def main():
                   'osm_changes_slot': changes_slot, 'osm_changes': applied_slot}
     prior = catalog['regions'].get(region['id'])
     if prior and prior['content_sha256'] == content and prior['pipeline_sha256'] == fingerprint and prior.get('supplement_version') == version:
-        updated = copy.deepcopy(catalog)
-        updated['regions'][region['id']]['observed_source_md5'] = signals[region['source_url']]
-        updated['regions'][region['id']]['osm_changes_slot'] = changes_slot
-        updated['regions'][region['id']]['osm_changes'] = applied_slot
-        publish_catalog(github, catalog, updated, root)
+        entry = {**copy.deepcopy(prior), **{k: checkpoint[k] for k in ('observed_source_md5', 'osm_changes_slot', 'osm_changes')}}
         print('Regional road content unchanged; only upstream observation advanced')
     else:
         run(sys.executable, ROOT / 'scripts/build_independent_region.py', '--region', root / 'region.json',
-            '--source', clipped, '--out', root / 'out', '--work', root / 'build', '--overture-release', overture_version)
+            '--source', clipped, '--out', root / 'out', '--work', root / 'build', '--overture-release', planned['overture_version'])
         tag = f"map-data-region-{region['id']}-r{os.environ['GITHUB_RUN_ID']}-a{os.environ['GITHUB_RUN_ATTEMPT']}"
-        publish_region(github, region, root / 'out', tag, checkpoint, catalog, root)
-        print('Published independent region: ' + region['id'])
-    # Deliberate workflow_dispatch starts the next serialized regional check/build.
-    # Unlike token pushes, dispatches can start a follow-on Actions run.
-    dispatch = ['gh', 'workflow', 'run', 'regional-maps.yml', '--repo', args.repo, '--ref', 'main']
-    if skip:
-        dispatch += ['-f', 'skip=' + ','.join(sorted(skip))]
-    run(*dispatch)
+        entry = publish_region(github, region, root / 'out', tag, checkpoint, catalog, root, promote=False)
+        print('Uploaded and verified region: ' + region['id'])
+    Path(args.out).write_text(json.dumps(entry, sort_keys=True))
+    return entry
+
+
+def merge_entries(live, entries):
+    """The live catalogue with each built region's entry; a malformed entry is refused."""
+    updated = copy.deepcopy(live)
+    for entry in entries:
+        key = entry.get('id')
+        if not isinstance(key, str) or not ID.fullmatch(key):
+            raise ValueError('Unsafe region entry')
+        updated['regions'][key] = entry
+    return validate_catalog(updated)
+
+
+def cmd_promote(args, github):
+    """The one catalogue writer of an update: adds every region that built, in one change."""
+    entries = [json.loads(p.read_text()) for p in sorted(Path(args.entries).glob('**/*.json'))]
+    planned = json.loads(Path(args.plan).read_text())
+    built = {e.get('id') for e in entries}
+    failed = sorted(set(planned['regions']) - built)
+    if entries:
+        live = load_catalog(github, args.work / 'live')
+        publish_catalog(github, live, merge_entries(live, entries), args.work)
+    print(f"Promoted {len(entries)} regions for {planned['changes_slot']}: " + ', '.join(sorted(built)))
+    if failed:
+        # Left behind the slot; the hourly watchdog starts another update for them.
+        print('::warning::Not updated this time (retried by the watchdog): ' + ', '.join(failed))
+    return built, failed
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--repo', required=True)
+    parser.add_argument('--work', type=Path, default=Path('work/regional'))
+    sub = parser.add_subparsers(dest='command', required=True)
+    p = sub.add_parser('plan', help='Choose every region this update must build')
+    p.add_argument('--out', required=True)
+    b = sub.add_parser('build', help='Build and upload one planned region')
+    b.add_argument('--plan', required=True)
+    b.add_argument('--region', required=True)
+    b.add_argument('--out', required=True)
+    m = sub.add_parser('promote', help='Add every built region to the catalogue at once')
+    m.add_argument('--plan', required=True)
+    m.add_argument('--entries', required=True)
+    args = parser.parse_args()
+    args.work.mkdir(parents=True, exist_ok=True)
+    github = publisher.GitHub(args.repo)
+    {'plan': cmd_plan, 'build': cmd_build, 'promote': cmd_promote}[args.command](args, github)
 
 
 if __name__ == '__main__':

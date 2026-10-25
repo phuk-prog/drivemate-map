@@ -170,3 +170,26 @@ class MetadataRetryTests(unittest.TestCase):
         self.assertEqual({'features': []}, regions.read_json_url('https://download.geofabrik.de/index-v1.json',
                                                                  opener=opener, sleeper=lambda s: None))
         self.assertEqual(3, len(calls))
+
+
+class ParallelUpdateTests(unittest.TestCase):
+    def test_plan_lists_every_region_behind_the_slot_once(self):
+        value = catalog()
+        value['regions']['stockport'] = published(regions.INITIAL[0], slot='2026-10-25T00:00Z')
+        signals = {regions.GM_SOURCE: 'c' * 32}
+        due = regions.due_regions(regions.INITIAL, value, signals, 'b' * 64, 'v1', '2026-10-25T14:00Z')
+        self.assertEqual(['stockport', 'manchester'], [r['id'] for r in due])
+        self.assertEqual(['manchester'], [r['id'] for r in regions.due_regions(
+            regions.INITIAL, value, signals, 'b' * 64, 'v1', '2026-10-25T00:00Z')])
+
+    def test_promote_adds_every_built_region_in_one_change(self):
+        live = catalog()
+        live['regions']['stockport'] = published(regions.INITIAL[0])
+        merged = regions.merge_entries(live, [published(regions.INITIAL[0], slot='S'), published(regions.INITIAL[1], slot='S')])
+        self.assertEqual({'stockport', 'manchester'}, set(merged['regions']))
+        self.assertEqual('S', merged['regions']['stockport']['osm_changes_slot'])
+        self.assertNotIn('osm_changes_slot', live['regions']['stockport'])
+
+    def test_promote_refuses_a_malformed_entry(self):
+        with self.assertRaises(ValueError):
+            regions.merge_entries(catalog(), [{'id': '../catalog'}])
