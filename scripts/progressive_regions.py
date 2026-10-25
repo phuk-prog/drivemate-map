@@ -38,6 +38,8 @@ INITIAL = [
 # Crown dependencies outside Geofabrik's united-kingdom tree, published as
 # their own regions (owner, 2026-10-25).
 ISLANDS = ('isle-of-man', 'guernsey-jersey')
+# Scripts that do not affect a region's files: changing them must not rebuild every region.
+NOT_BUILD_INPUTS = ('scripts/uk_overview.py', 'scripts/map_watchdog.py', 'scripts/daily_schedule.py')
 ID = re.compile(r'[a-z0-9][a-z0-9-]{0,70}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
 
@@ -375,7 +377,7 @@ def context(github, work):
     index = read_json_url('https://download.geofabrik.de/index-v1.json')
     plan = expansion_plan(index)
     catalog = load_catalog(github, Path(work) / 'previous')
-    fingerprint = daily_source_probe.pipeline_fingerprint(ROOT, includes=('.github/workflows/regional-maps.yml',))['pipeline_sha256']
+    fingerprint = daily_source_probe.pipeline_fingerprint(ROOT, includes=('.github/workflows/regional-maps.yml',), excludes=NOT_BUILD_INPUTS)['pipeline_sha256']
     release = subprocess.run(['overturemaps', 'releases', 'latest'], capture_output=True, text=True)
     overture_version = release.stdout.strip().splitlines()[-1] if release.returncode == 0 and release.stdout.strip() else 'unknown'
     if not re.fullmatch(r'20\d\d-\d\d-\d\d\.\d+', overture_version):

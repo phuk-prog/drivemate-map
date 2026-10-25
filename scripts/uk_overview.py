@@ -27,6 +27,9 @@ POINTER = 'overview.json'
 MAP_NAME = 'drivemate-overview.pmtiles'
 MAXZOOM = 10
 BOUNDS = [-8.75, 49.1, 1.9, 60.9]
+# The area drawn: the sea is drawn this wide so it never ends in a straight line on screen (emulator
+# run 40179760990 zoomed right out showed the sea as a box). Land outside the UK is plain land.
+DRAWN = [-25.0, 43.0, 15.0, 66.0]
 SOURCES = [
     'https://download.geofabrik.de/europe/united-kingdom-latest.osm.pbf',
     'https://download.geofabrik.de/europe/isle-of-man-latest.osm.pbf',
@@ -94,7 +97,7 @@ def build(sources, work, out):
     run('java', '-Xmx6g', '-jar', ROOT / 'work/planetiler.jar', 'generate-custom',
         '--schema=' + str(ROOT / 'schema/drivemate-map.yml'), '--osm_path=' + str(merged),
         '--ocean_path=' + str(ROOT / 'work/sources/water-polygons-split-3857.zip'),
-        '--output=' + str(archive), '--bounds=' + ','.join(map(str, BOUNDS)),
+        '--output=' + str(archive), '--bounds=' + ','.join(map(str, DRAWN)),
         f'--maxzoom={MAXZOOM}', f'--render_maxzoom={MAXZOOM}',
         '--download_osm_tile_weights=false', '--force')
     import verify_pmtiles

@@ -29,6 +29,11 @@ class OverviewTests(unittest.TestCase):
         for place in ('united-kingdom', 'isle-of-man', 'guernsey-jersey'):
             self.assertIn(place, names)
 
+    def test_sea_is_drawn_well_beyond_the_uk(self):
+        dw, ds, de, dn = overview.DRAWN
+        w, s, e, n = overview.BOUNDS
+        self.assertTrue(dw <= w - 10 and de >= e + 10 and ds <= s - 5 and dn >= n + 5)
+
     def test_keeps_main_roads_but_not_streets(self):
         roads = overview.FILTERS[0]
         for kind in ('motorway', 'trunk', 'primary', 'secondary'):
