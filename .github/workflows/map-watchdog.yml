@@ -1,0 +1,23 @@
+name: Map update watchdog
+# Hourly: restarts the regional update or the UK overview if the twice-daily update stalled
+# (dropped schedule, failure before a region was chosen). Separate workflow, so it never
+# replaces an update run waiting in GitHub's queue.
+on:
+  schedule:
+    - cron: '40 * * * *'
+  workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: map-watchdog
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: python3 scripts/map_watchdog.py --repo "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
