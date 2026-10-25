@@ -51,11 +51,23 @@ def checked_bounds(bounds):
     return bounds
 
 
-def read_json_url(url, maximum=20_000_000):
+def read_json_url(url, maximum=20_000_000, *, attempts=4, opener=None, sleeper=None):
+    """Small JSON metadata (the Geofabrik index); transient failures are retried with waits."""
     if not url.startswith('https://'):
         raise ValueError('HTTPS source required')
-    with urlopen(url, timeout=60) as response:
-        data = response.read(maximum + 1)
+    opener = opener or urlopen
+    sleeper = sleeper or time.sleep
+    for attempt in range(attempts):
+        try:
+            with opener(url, timeout=60) as response:
+                data = response.read(maximum + 1)
+            break
+        except (OSError, TimeoutError) as exc:
+            if isinstance(exc, HTTPError) and exc.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            if attempt == attempts - 1:
+                raise
+            sleeper(min(5 * 2 ** attempt, 40))
     if len(data) > maximum:
         raise ValueError('Source metadata too large')
     return json.loads(data)

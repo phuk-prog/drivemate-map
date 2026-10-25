@@ -156,3 +156,17 @@ class ChangeFileTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MetadataRetryTests(unittest.TestCase):
+    def test_geofabrik_index_timeout_is_retried(self):
+        import io
+        calls = []
+        def opener(url, timeout):
+            calls.append(url)
+            if len(calls) < 3:
+                raise TimeoutError('slow')
+            return io.BytesIO(b'{"features": []}')
+        self.assertEqual({'features': []}, regions.read_json_url('https://download.geofabrik.de/index-v1.json',
+                                                                 opener=opener, sleeper=lambda s: None))
+        self.assertEqual(3, len(calls))
