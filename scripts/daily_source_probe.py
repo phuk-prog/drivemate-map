@@ -81,7 +81,7 @@ def decide(url, signal_text, pipeline_sha256, previous=None, force=False):
             "pipeline_sha256": pipeline_sha256, "rebuild": bool(reasons), "reasons": reasons}
 
 
-def pipeline_fingerprint(repo, includes=()):
+def pipeline_fingerprint(repo, includes=(), excludes=()):
     """Hash code/config content and paths; generated checkpoints/timestamps are excluded.
 
     Additional explicit config paths allow future build profiles/dependency definitions.
@@ -95,6 +95,9 @@ def pipeline_fingerprint(repo, includes=()):
                     "poetry.lock", "pom.xml", "build.gradle*", "settings.gradle*",
                     "gradle/libs.versions.toml"):
         paths.update(p for p in root.glob(pattern) if p.is_file() and p.name not in GENERATED_STATE_NAMES)
+    # Scripts that cannot change what a build produces (schedulers, other products) are left out,
+    # so changing them does not rebuild every published region.
+    paths = {p for p in paths if p.relative_to(root).as_posix() not in set(excludes)}
     for name in includes:
         path = root / name
         if Path(name).is_absolute() or ".." in Path(name).parts:

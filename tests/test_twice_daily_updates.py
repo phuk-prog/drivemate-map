@@ -193,3 +193,21 @@ class ParallelUpdateTests(unittest.TestCase):
     def test_promote_refuses_a_malformed_entry(self):
         with self.assertRaises(ValueError):
             regions.merge_entries(catalog(), [{'id': '../catalog'}])
+
+
+class FingerprintTests(unittest.TestCase):
+    def test_overview_and_watchdog_changes_do_not_rebuild_regions(self):
+        import shutil, daily_source_probe
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'scripts').mkdir()
+            for name in ('build.py', 'uk_overview.py'):
+                (root / 'scripts' / name).write_text('x = 1\n')
+            (root / '.github/workflows').mkdir(parents=True)
+            (root / '.github/workflows/map-data.yml').write_text('a\n')
+            fp = lambda: daily_source_probe.pipeline_fingerprint(root, excludes=regions.NOT_BUILD_INPUTS)['pipeline_sha256']
+            before = fp()
+            (root / 'scripts/uk_overview.py').write_text('x = 2\n')
+            self.assertEqual(before, fp())
+            (root / 'scripts/build.py').write_text('x = 2\n')
+            self.assertNotEqual(before, fp())
