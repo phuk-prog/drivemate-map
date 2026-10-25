@@ -13,6 +13,7 @@ import re
 import subprocess
 import tempfile
 import time
+import urllib.request
 
 LEGACY = 'map-data-uk'
 ASSET_LIMIT = 1000
@@ -99,7 +100,7 @@ class GitHub:
     def run(self, *args):
         # Read-only API calls are simply repeated after the allowance resets. Anything that
         # changes a release raises RateLimited so the caller can re-check what already exists.
-        read_only = args[:1] == ('api',) and '-X' not in args
+        read_only = (args[:1] == ('api',) and '-X' not in args) or args[:2] in (('release', 'download'), ('release', 'view'))
         for attempt in range(MAX_RATE_LIMIT_WAITS + 1):
             result = subprocess.run(['gh', *map(str, args)], capture_output=True, text=True, check=False)
             if not result.returncode:
@@ -172,11 +173,27 @@ class GitHub:
             raise ValueError('Legacy release takes only the pointer')
         self.run('release', 'upload', tag, *[str(Path(p).resolve()) for p in paths], '--repo', self.repo)
 
-    def download(self, tag, name, directory):
+    def download(self, tag, name, directory, attempts=4):
+        """A release file from its public address, which uses none of the API allowance (six
+        parallel region builds used it up on 2026-10-25); the CLI only if that fails."""
         checked_name(name)
+        target = Path(directory) / name
+        url = f'https://github.com/{self.repo}/releases/download/{checked_tag(tag) if not READ_TAG.fullmatch(tag) else tag}/{name}'
+        for attempt in range(attempts):
+            part = target.with_name(target.name + '.part')
+            try:
+                with urllib.request.urlopen(url, timeout=120) as response, part.open('wb') as out:
+                    for block in iter(lambda: response.read(1024 * 1024), b''):
+                        out.write(block)
+                part.replace(target)
+                return target
+            except (OSError, TimeoutError):
+                part.unlink(missing_ok=True)
+                if attempt < attempts - 1:
+                    time.sleep(min(5 * 2 ** attempt, 40))
         self.run('release', 'download', tag, '--repo', self.repo, '--pattern', name,
                  '--dir', str(Path(directory).resolve()))
-        return Path(directory) / name
+        return target
 
     def delete(self, asset):
         asset_id = asset.get('id')

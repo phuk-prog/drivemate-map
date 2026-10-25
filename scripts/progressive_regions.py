@@ -39,7 +39,8 @@ INITIAL = [
 # their own regions (owner, 2026-10-25).
 ISLANDS = ('isle-of-man', 'guernsey-jersey')
 # Scripts that do not affect a region's files: changing them must not rebuild every region.
-NOT_BUILD_INPUTS = ('scripts/uk_overview.py', 'scripts/map_watchdog.py', 'scripts/daily_schedule.py')
+NOT_BUILD_INPUTS = ('scripts/uk_overview.py', 'scripts/map_watchdog.py', 'scripts/daily_schedule.py',
+                    'scripts/publish_map_data.py')
 ID = re.compile(r'[a-z0-9][a-z0-9-]{0,70}\Z')
 SHA = re.compile(r'[a-f0-9]{64}\Z')
 
