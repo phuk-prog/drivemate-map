@@ -5,7 +5,7 @@ rule), and the phrases that wording needs. A file passes a rule when it holds ev
 spacing as written, curly quotes and dashes treated as plain). Only these published wordings can
 fail a file; anything else is reported, never failed.
 
-    python3 scripts/credits_check.py FILE...            # e.g. licenses/NOTICE.md README.md
+    python3 scripts/credits_check.py FILE...            # e.g. licenses/NOTICE.md
     python3 scripts/credits_check.py --app DataCredits.kt   # the app's credits screen (all rules)
 """
 from __future__ import annotations

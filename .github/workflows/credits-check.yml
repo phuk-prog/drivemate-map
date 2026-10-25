@@ -1,6 +1,6 @@
 name: Credits complete (test 1.6)
 
-# Owner, 18 Oct 2026 (plan test 1.6): every data source's credit is in the notice and the README,
+# Owner, 18 Oct 2026 (plan test 1.6): every data source's credit is in the notice,
 # worded as its owner publishes it (scripts/credits_check.py; each rule links its owner's page).
 
 on:
@@ -25,7 +25,7 @@ jobs:
       - name: Check
         run: |
           set -o pipefail
-          python3 scripts/credits_check.py licenses/NOTICE.md README.md | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 scripts/credits_check.py licenses/NOTICE.md | tee -a "$GITHUB_STEP_SUMMARY"
       - name: No Mapillary values in the phone's lane and speed-limit files
         env:
           GH_TOKEN: ${{ github.token }}

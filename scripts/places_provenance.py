@@ -3,7 +3,7 @@
 ``places.py`` writes ``places-provenance.json`` beside the unchanged five-field
 ``places-<row>_<col>.json.gz`` tiles. The sidecar records per-source counts after
 merge and de-duplication, the Overture release when known, and the licence and
-notice obligations already stated in docs/source-rights-review.md.
+notice obligations already stated in licenses/NOTICE.md.
 
 It is engineering evidence, NOT legal clearance: the licence text below is
 copied from the repository's own rights review, has not been independently
@@ -21,9 +21,9 @@ SOURCE_IDS = ('overture', 'osm', 'osm_addresses', 'osnames')
 UNKNOWN = 'unknown'
 UNAVAILABLE = 'unavailable'
 OVERTURE_RELEASE = re.compile(r'\d{4}-\d{2}-\d{2}\.\d+')
-REVIEW_DOC = 'docs/source-rights-review.md'
+REVIEW_DOC = 'licenses/NOTICE.md'
 
-# Wording is limited to what docs/source-rights-review.md already states.
+# Wording is limited to what licenses/NOTICE.md already states.
 SOURCES = {
     'osm': {
         'label': 'OpenStreetMap',

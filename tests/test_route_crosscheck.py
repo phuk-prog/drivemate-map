@@ -450,7 +450,7 @@ class Workflow(unittest.TestCase):
         self.assertEqual(on["push"]["branches"], ["codex/architecture-foundation"])
         self.assertEqual(sorted(on["push"]["paths"]), sorted([
             "scripts/route_crosscheck.py", "tests/test_route_crosscheck.py",
-            ".github/workflows/route-crosscheck.yml", "docs/validation/route-crosscheck.md"]))
+            ".github/workflows/route-crosscheck.yml"]))
         job = wf["jobs"]["crosscheck"]
         self.assertLessEqual(job["timeout-minutes"], 60)
         text = (ROOT / ".github/workflows/route-crosscheck.yml").read_text()

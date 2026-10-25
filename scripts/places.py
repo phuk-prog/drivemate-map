@@ -11,7 +11,7 @@ fullest address. Output is split into quarter-degree squares (about 28 x 17 km),
 
 Also writes one nationwide places-provenance.json sidecar (see places_provenance.py) with
 per-source counts after merging, the Overture release when known, and the licence/notice
-obligations recorded in docs/source-rights-review.md. The tile format above is unchanged.
+obligations recorded in licenses/NOTICE.md. The tile format above is unchanged.
 
 Usage: places.py out_dir [--overture places.parquet] [--overture-release 2026-09-17.0]
                          [--osm pois.geojsonseq] [--osm-addresses addresses.geojsonseq] [--osnames dir]

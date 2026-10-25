@@ -21,7 +21,6 @@ on:
       - scripts/route_crosscheck.py
       - tests/test_route_crosscheck.py
       - .github/workflows/route-crosscheck.yml
-      - docs/validation/route-crosscheck.md
 
 permissions:
   contents: read
