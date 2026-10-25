@@ -158,7 +158,7 @@ def main():
     archive = out / 'drivemate-v1.pmtiles'
     command('java', '-Xmx6g', '-jar', ROOT / 'work/planetiler.jar', 'generate-custom', '--schema=' + str(schema),
             '--osm_path=' + str(source), '--ocean_path=' + str(ROOT / 'work/sources/water-polygons-split-3857.zip'),
-            '--output=' + str(archive), '--bounds=' + ','.join(map(str, bounds)), '--download', '--force')
+            '--output=' + str(archive), '--bounds=' + ','.join(map(str, bounds)), '--download', '--download_osm_tile_weights=false', '--force')
     map_report = validate_local_map(archive, region)
     (out / 'map-validation.json').write_text(json.dumps(map_report, indent=2) + '\n')
     # Preserve every exported tag/feature and relation, not only visible map layers.

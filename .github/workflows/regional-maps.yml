@@ -1,9 +1,17 @@
 name: Progressive regional maps
 on:
   workflow_dispatch:
+    inputs:
+      skip:
+        description: Regions that failed earlier in this update (comma-separated); left for the next update
+        type: string
+        default: ''
   schedule:
+    # 01:00 and 14:00 UK. Each pair is BST/GMT; daily_schedule.py runs exactly one of each.
     - cron: '0 0 * * *'
     - cron: '0 1 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
   push:
     branches: [main]
     paths:
@@ -51,14 +59,68 @@ jobs:
           echo '5e5e7d8c4fc89b4573cc9109d0a543c3c2c798b2bcde7c3dcd2214031ee59c29  work/planetiler.jar' | sha256sum --check --strict
           curl -fsSL --retry 2 --max-time 60 https://raw.githubusercontent.com/valhalla/valhalla/3.6.3/scripts/valhalla_build_extract -o work/valhalla_build_extract
           echo '37daac2ff760552c79431b41653be6d457e7e30d051e400c29064208fce65ae4  work/valhalla_build_extract' | sha256sum --check --strict
-      - uses: actions/cache@v4
+      - id: month
         if: steps.clock.outputs.due == 'true'
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+      # The 900 MB sea outlines are needed by every coastal region. The old cache was
+      # first saved by an inland run, so it held an empty folder and every coastal build
+      # downloaded the file again until one download timed out (run 40174003610).
+      - id: sea-cache
+        if: steps.clock.outputs.due == 'true'
+        uses: actions/cache/restore@v4
         with:
-          path: work/sources
-          key: osm-coast-polygons-2026-10-v1
-      - name: Check regional changes, build next region and publish verified bundle
+          path: work/sources/water-polygons-split-3857.zip
+          key: osm-water-polygons-v2-${{ steps.month.outputs.month }}
+          restore-keys: osm-water-polygons-v2-
+      - name: Make sure the sea outlines are present and whole
+        id: sea
         if: steps.clock.outputs.due == 'true'
-        run: python3 scripts/progressive_regions.py --repo "$GITHUB_REPOSITORY"
+        run: |
+          set -euo pipefail
+          zip=work/sources/water-polygons-split-3857.zip
+          whole() { [ -s "$zip" ] && [ "$(stat -c %s "$zip")" -gt 100000000 ] && unzip -tqq "$zip" > /dev/null; }
+          if [ "${{ steps.sea-cache.outputs.cache-hit }}" = true ] && whole; then echo "fresh=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          rm -f "$zip"
+          if curl --fail --silent --show-error --location --proto '=https' --retry 8 --retry-all-errors \
+               --retry-delay 15 --connect-timeout 30 --max-time 1800 -o "$zip" \
+               https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip && whole; then
+            echo "Fresh sea outlines from osmdata.openstreetmap.de"
+            gh release view map-data-sources --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 || \
+              gh release create map-data-sources --repo "$GITHUB_REPOSITORY" --prerelease --title map-data-sources \
+                --notes 'Kept copies of slow map sources. OpenStreetMap contributors (ODbL).'
+            gh release upload map-data-sources "$zip" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            rm -f "$zip"
+            echo "::warning::osmdata.openstreetmap.de unavailable; using the kept copy"
+            gh release download map-data-sources --repo "$GITHUB_REPOSITORY" --pattern water-polygons-split-3857.zip --dir work/sources
+            whole
+          fi
+          echo "fresh=true" >> "$GITHUB_OUTPUT"
+      - if: steps.clock.outputs.due == 'true' && steps.sea.outputs.fresh == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: work/sources/water-polygons-split-3857.zip
+          key: osm-water-polygons-v2-${{ steps.month.outputs.month }}
+      - name: Check regional changes, build next region and publish verified bundle
+        id: build
+        if: steps.clock.outputs.due == 'true'
+        env:
+          SKIP: ${{ inputs.skip }}
+        run: python3 scripts/progressive_regions.py --repo "$GITHUB_REPOSITORY" --skip "$SKIP"
+      # One failed region must not stop the rest of the update: hold it back until the
+      # next update and carry on with the next region.
+      - name: Continue the update without the failed region
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          SKIP: ${{ inputs.skip }}
+        run: |
+          set -euo pipefail
+          failed=$(jq -r '.id' work/regional/*/region.json 2>/dev/null | head -1 || true)
+          if [ -z "$failed" ]; then echo "::error::Failed before choosing a region; next scheduled update retries"; exit 0; fi
+          skip=$(printf '%s\n' ${SKIP//,/ } "$failed" | sort -u | paste -sd, -)
+          echo "::error::Region $failed failed; continuing the update without it (held back: $skip)"
+          echo "Region **$failed** failed and waits for the next update. Held back: $skip" >> "$GITHUB_STEP_SUMMARY"
+          gh workflow run regional-maps.yml --repo "$GITHUB_REPOSITORY" --ref main -f skip="$skip"
       - name: Retain regional validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

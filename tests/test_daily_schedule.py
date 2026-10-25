@@ -15,3 +15,21 @@ class DailyScheduleTests(unittest.TestCase):
         self.assertEqual('0 1 * * *', selected_cron(date(2026, 3, 29)))
         self.assertEqual('0 0 * * *', selected_cron(date(2026, 10, 25)))
         self.assertEqual('0 1 * * *', selected_cron(date(2026, 10, 26)))
+
+
+class TwiceDailyTests(unittest.TestCase):
+    def test_01_and_14_uk_in_winter_and_summer(self):
+        from daily_schedule import selected_crons
+        self.assertEqual({'0 1 * * *', '0 14 * * *'}, selected_crons(date(2026, 1, 5)))
+        self.assertEqual({'0 0 * * *', '0 13 * * *'}, selected_crons(date(2026, 7, 5)))
+        # Clocks went back early on 25 Oct 2026: 01:00 is still BST, 14:00 is GMT.
+        self.assertEqual({'0 0 * * *', '0 14 * * *'}, selected_crons(date(2026, 10, 25)))
+
+    def test_latest_slot_is_fixed_for_a_whole_update_chain(self):
+        from datetime import datetime, timezone
+        from daily_schedule import latest_slot
+        utc = timezone.utc
+        self.assertEqual(datetime(2026, 10, 25, 0, tzinfo=utc), latest_slot(datetime(2026, 10, 25, 8, 45, tzinfo=utc)))
+        self.assertEqual(datetime(2026, 10, 25, 14, tzinfo=utc), latest_slot(datetime(2026, 10, 25, 20, 0, tzinfo=utc)))
+        self.assertEqual(datetime(2026, 10, 25, 14, tzinfo=utc), latest_slot(datetime(2026, 10, 26, 0, 59, tzinfo=utc)))
+        self.assertEqual(datetime(2026, 7, 5, 13, tzinfo=utc), latest_slot(datetime(2026, 7, 5, 13, 0, tzinfo=utc)))
