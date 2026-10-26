@@ -62,6 +62,17 @@ class WatchdogTests(unittest.TestCase):
         self.assertEqual([], start)
         self.assertIn('UK map up to date', notes)
 
+    def test_dmn_pieces_are_rebuilt_after_changed_regions(self):
+        done = {'regions': {'wales': {'osm_changes_slot': SLOT, 'manifest': {'sha256': 'new'}}}}
+        start, _ = w.decide(False, False, done, FRESH, NOW, dmn_index={'catalog_regions': {'wales': 'old'}}, check_dmn=True)
+        self.assertEqual([w.DMN_WORKFLOW], start)
+        start, _ = w.decide(False, False, done, FRESH, NOW, dmn_index=None, check_dmn=True)
+        self.assertEqual([w.DMN_WORKFLOW], start, 'no pieces published yet')
+        start, _ = w.decide(False, False, done, FRESH, NOW, dmn_index={'catalog_regions': {'wales': 'new'}}, check_dmn=True)
+        self.assertEqual([], start)
+        start, _ = w.decide(False, False, done, FRESH, NOW, active_dmn=True, dmn_index=None, check_dmn=True)
+        self.assertEqual([], start)
+
 
 if __name__ == '__main__':
     unittest.main()

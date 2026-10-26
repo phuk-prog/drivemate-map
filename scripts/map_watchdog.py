@@ -21,11 +21,13 @@ CATALOG = 'https://github.com/{repo}/releases/download/map-regions/catalog.json'
 OVERVIEW = 'https://github.com/{repo}/releases/download/map-data-overview/overview.json'
 UK_JOIN = 'https://github.com/{repo}/releases/download/map-data-ukjoin/uk.json'
 UK_MAP = 'https://github.com/{repo}/releases/download/map-data-ukmap/ukmap.json'
+DMN_INDEX = 'https://github.com/{repo}/releases/download/dmn-uk/dmn-uk.json'
 # A region is retried once an hour at most; one that keeps failing is listed, not hidden.
 REGIONS_WORKFLOW = 'regional-maps.yml'
 OVERVIEW_WORKFLOW = 'uk-overview.yml'
 JOIN_WORKFLOW = 'uk-join.yml'
 MAP_WORKFLOW = 'uk-map.yml'
+DMN_WORKFLOW = 'dmn-pack.yml'
 
 
 def behind(catalog, slot_text):
@@ -47,7 +49,8 @@ def join_stale(catalog, join_pointer):
 
 
 def decide(active_regions, active_overview, catalog, pointer, now, active_join=False, join_pointer=None, check_join=False,
-           active_map=False, map_pointer=None, check_map=False):
+           active_map=False, map_pointer=None, check_map=False,
+           active_dmn=False, dmn_index=None, check_dmn=False):
     """What to start now: a list of workflow files (possibly empty), and why."""
     slot = daily_schedule.latest_slot(now)
     slot_text = slot.strftime('%Y-%m-%dT%H:%MZ')
@@ -86,6 +89,17 @@ def decide(active_regions, active_overview, catalog, pointer, now, active_join=F
             notes.append('UK map older than the regional catalogue')
         else:
             notes.append('UK map up to date')
+    if check_dmn:
+        index = {'regions': dmn_index.get('catalog_regions')} if dmn_index else None
+        if active_dmn:
+            notes.append('DMN road pieces running')
+        elif active_regions or late:
+            notes.append('DMN road pieces wait for the regions')
+        elif join_stale(catalog, index):
+            start.append(DMN_WORKFLOW)
+            notes.append('DMN road pieces older than the regional catalogue')
+        else:
+            notes.append('DMN road pieces up to date')
     return start, notes
 
 
@@ -115,10 +129,12 @@ def main():
     pointer = read(OVERVIEW.format(repo=args.repo))
     join_pointer = read(UK_JOIN.format(repo=args.repo))
     map_pointer = read(UK_MAP.format(repo=args.repo))
+    dmn_index = read(DMN_INDEX.format(repo=args.repo))
     start, notes = decide(active(args.repo, REGIONS_WORKFLOW), active(args.repo, OVERVIEW_WORKFLOW),
                           catalog, pointer, datetime.now(timezone.utc),
                           active_join=active(args.repo, JOIN_WORKFLOW), join_pointer=join_pointer, check_join=True,
-                          active_map=active(args.repo, MAP_WORKFLOW), map_pointer=map_pointer, check_map=True)
+                          active_map=active(args.repo, MAP_WORKFLOW), map_pointer=map_pointer, check_map=True,
+                          active_dmn=active(args.repo, DMN_WORKFLOW), dmn_index=dmn_index, check_dmn=True)
     for note in notes:
         print(note)
     for workflow in start:
