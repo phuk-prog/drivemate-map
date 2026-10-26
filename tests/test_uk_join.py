@@ -79,6 +79,18 @@ class UkJoinTests(unittest.TestCase):
         self.assertFalse(uk_join.RUN_TAG.fullmatch('map-data-region-x-r1-a1'))
         self.assertFalse(uk_join.RUN_TAG.fullmatch('map-data-ukjoin'))
 
+    def test_coverage_counts_roads_with_each_driving_tag(self):
+        doc = {'ways': [{'id': 1, 't': {'maxheight': '4.2', 'bridge': 'yes'}}, {'id': 2, 't': {'surface': 'asphalt'}}]}
+        counts = uk_join.tag_counts(doc)
+        self.assertEqual(2, counts['roads'])
+        self.assertEqual(1, counts['maxheight'])
+        self.assertEqual(0, counts['ford'])
+        files = {'road-details-1_1.json.gz': {'tags': counts}, 'road-details-1_2.json.gz': {'tags': counts},
+                 'lanes-1_1.json': {'tags': {'roads': 99}}}
+        total = uk_join.coverage(files)
+        self.assertEqual(4, total['roads'])
+        self.assertEqual(2, total['maxheight'])
+
 
 if __name__ == '__main__':
     unittest.main()

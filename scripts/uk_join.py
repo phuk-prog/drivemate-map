@@ -32,6 +32,12 @@ RUN_TAG = re.compile(r'map-data-ukjoin-r[0-9]{1,20}-a[0-9]{1,6}(-part[0-9]{3})?'
 SQUARE = re.compile(r'(lanes|limits|roadinfo|road-details|places)--?[0-9]{1,4}_-?[0-9]{1,4}\.json(\.gz)?')
 UK_WIDE = ('cameras-uk.json', 'charge-zones-uk.json')
 KEEP_JOINS = 3
+# How many UK roads carry each extra driving tag (the app keeps the same ones: RoadDetails.kt),
+# so the owner can see which information OpenStreetMap maps well before a category relies on it.
+COVERAGE_TAGS = ('maxheight', 'maxwidth', 'maxweight', 'maxlength', 'hgv', 'access:conditional',
+                 'motor_vehicle:conditional', 'oneway:conditional', 'maxspeed:conditional', 'maxspeed:variable',
+                 'maxspeed:type', 'overtaking', 'incline', 'surface', 'smoothness', 'ford', 'toll', 'hov:lanes',
+                 'lanes', 'turn:lanes', 'maxspeed', 'lit', 'bridge', 'tunnel')
 
 
 def joinable(name):
@@ -83,6 +89,25 @@ def merge(name, documents):
         zones = [z for doc in documents for z in doc.get('zones', [])]
         merged['zones'] = _unique(zones, lambda z: json.dumps(z, sort_keys=True))
     return merged
+
+
+def tag_counts(document):
+    """Roads carrying each coverage tag in one road-detail square, plus the number of roads."""
+    ways = document.get('ways', []) if isinstance(document, dict) else []
+    counts = {'roads': len(ways)}
+    for tag in COVERAGE_TAGS:
+        counts[tag] = sum(1 for w in ways if tag in w.get('t', {}))
+    return counts
+
+
+def coverage(files):
+    """UK totals from every road-detail square's counts."""
+    total = {}
+    for name, entry in files.items():
+        if name.startswith('road-details-'):
+            for key, value in entry.get('tags', {}).items():
+                total[key] = total.get(key, 0) + value
+    return dict(sorted(total.items()))
 
 
 def read(path):
@@ -172,15 +197,16 @@ def build(github, wanted, previous_files, work):
                 raise ValueError(f'Regional file integrity failed: {copy["region"]}/{name}')
             documents.append(read(path))
         out = work / 'out' / name
-        write(out, merge(name, documents))
+        merged = merge(name, documents)
+        write(out, merged)
         read(out)  # the joined file must load as the app loads it
         shutil.rmtree(folder)
-        return name, out, key
+        return name, out, key, (tag_counts(merged) if name.startswith('road-details-') else None)
 
     (work / 'out').mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for name, out, key in pool.map(one, todo):
-            built[name] = (out, key)
+        for name, out, key, counts in pool.map(one, todo):
+            built[name] = (out, key, counts)
     return built, reused
 
 
@@ -188,7 +214,7 @@ def publish(github, built, reused, run_tag, region_ids, work):
     """Upload new files in shards of under 1,000, the manifest last, then move the pointer."""
     publisher.checked_tag(run_tag)
     licences = publisher.licence_files()
-    pending = {name: path for name, (path, _) in built.items()}
+    pending = {name: item[0] for name, item in built.items()}
     pending.update(licences)
     names = sorted(pending)
     limit = min(publisher.MAIN_FILES, publisher.ASSET_LIMIT - 1)
@@ -202,8 +228,11 @@ def publish(github, built, reused, run_tag, region_ids, work):
             entry = publisher.metadata(pending[n], tag)
             if n in built:
                 entry['sources'] = built[n][1]
+                if built[n][2] is not None:
+                    entry['tags'] = built[n][2]
             files[n] = entry
-    manifest = {'schema': 1, 'kind': 'uk-join', 'regions': region_ids, 'files': dict(sorted(files.items()))}
+    manifest = {'schema': 1, 'kind': 'uk-join', 'regions': region_ids, 'files': dict(sorted(files.items())),
+                'tag_coverage': coverage(files)}
     manifest_path = Path(work) / 'manifest.json'
     manifest_path.write_text(json.dumps(manifest, sort_keys=True) + '\n')
     if manifest_path.stat().st_size > publisher.MAX_MANIFEST_BYTES:
@@ -212,7 +241,7 @@ def publish(github, built, reused, run_tag, region_ids, work):
     for tag, shard in shards:
         publisher.upload_immutable(github, tag, shard)
     for tag in {e['tag'] for e in reused.values()}:
-        wanted = {n: {k: v for k, v in e.items() if k != 'sources'} for n, e in reused.items() if e['tag'] == tag}
+        wanted = {n: {k: v for k, v in e.items() if k in ('sha256', 'bytes', 'tag')} for n, e in reused.items() if e['tag'] == tag}
         publisher.verify_inventory(github.inventory(tag), wanted, tag)
     pointer = {'schema': 1, 'built_utc': datetime.now(timezone.utc).isoformat(), 'regions': region_ids,
                'manifest': publisher.metadata(manifest_path, run_tag)}
@@ -269,7 +298,12 @@ def main():
     if summary:
         with open(summary, 'a', encoding='utf-8') as s:
             s.write(f'UK join {run_tag}: {len(wanted)} files from {len(region_ids)} regions '
-                    f'({len(built)} rebuilt, {len(reused)} unchanged)\n')
+                    f'({len(built)} rebuilt, {len(reused)} unchanged)\n\n')
+            roads = manifest['tag_coverage'].get('roads', 0)
+            s.write('| OpenStreetMap tag | UK roads with it | Share |\n|---|---|---|\n')
+            for tag, count in manifest['tag_coverage'].items():
+                if tag != 'roads':
+                    s.write(f'| {tag} | {count:,} | {100 * count / roads:.1f}% |\n' if roads else f'| {tag} | {count:,} | |\n')
     try:
         prune(github, manifest)
     except Exception as exc:  # tidying never fails a good join

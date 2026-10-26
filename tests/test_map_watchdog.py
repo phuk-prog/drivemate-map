@@ -52,6 +52,16 @@ class WatchdogTests(unittest.TestCase):
         start, _ = w.decide(False, False, done, FRESH, NOW, active_join=True, join_pointer=None, check_join=True)
         self.assertEqual([], start)
 
+    def test_uk_map_is_remade_after_changed_regions(self):
+        done = {'regions': {'wales': {'osm_changes_slot': SLOT, 'manifest': {'sha256': 'new'}}}}
+        start, _ = w.decide(False, False, done, FRESH, NOW, map_pointer={'regions': {'wales': 'old'}}, check_map=True)
+        self.assertEqual([w.MAP_WORKFLOW], start)
+        start, _ = w.decide(False, False, done, FRESH, NOW, active_map=True, map_pointer=None, check_map=True)
+        self.assertEqual([], start)
+        start, notes = w.decide(False, False, done, FRESH, NOW, map_pointer={'regions': {'wales': 'new'}}, check_map=True)
+        self.assertEqual([], start)
+        self.assertIn('UK map up to date', notes)
+
 
 if __name__ == '__main__':
     unittest.main()
