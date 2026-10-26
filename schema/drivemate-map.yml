@@ -1,7 +1,7 @@
 # DriveMate's own map-file layout. Designed by us for what a driver needs:
 # no OpenMapTiles layout, so the map credit is OpenStreetMap contributors only. Built every week by map-data.yml:
 #   java -jar planetiler.jar generate-custom --schema=schema/drivemate-map.yml --osm_path=<snapshot> --output=<file>
-# Layers (fields in brackets): water, land [kind], buildings [height, min_height], roads [kind, link, name, ref, shield],
+# Layers (fields in brackets): water, land [kind], buildings [height, min_height], roads [kind, link, name, ref, shield, bridge],
 # places [kind, name, population], pois [kind, name]. phuk-prog/drivemate-map-style draws them.
 schema_name: DriveMate
 schema_description: DriveMate's own map layout, only what a driver needs
@@ -170,6 +170,12 @@ layers:
               blue: { highway: motorway }
               green: { highway: trunk }
               white: otherwise
+          # A road on a bridge: the app draws it over the route where the route passes under it
+          # (DriveMate journey review 13, 26 Oct 2026). Close in only, where junctions are read.
+          - key: bridge
+            value: true
+            min_zoom: 12
+            include_when: { bridge: [yes, viaduct, cantilever, movable, trestle, covered] }
       - source: osm
         geometry: line
         min_zoom: 7
