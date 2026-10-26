@@ -104,14 +104,18 @@ layers:
           building: 'no'
           building:part: 'no'
         attributes:
-          # metres; a mapped height, else 3.66 m a storey, else 5 m (one low building)
+          # Only explicit metre heights support a real 3D extrusion. Storeys are not metres.
+          # The provenance bit lets the app reject older tiles containing a guessed 5m fallback.
+          - key: height_known
+            value: true
+            include_when: '${ feature.tags.has("height") && feature.tags.height.matches("^[0-9]+([.][0-9]+)? ?m?$") }'
           - key: height
             type: double
-            value: '${ feature.tags.has("height") && feature.tags.height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.height.replace("m", "").trim()) : feature.tags.has("building:levels") && feature.tags["building:levels"].matches("^[0-9]+([.][0-9]+)?$") ? double(feature.tags["building:levels"]) * 3.66 : 5.0 }'
+            value: '${ feature.tags.has("height") && feature.tags.height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.height.replace("m", "").trim()) : 0.0 }'
           - key: min_height
             type: double
-            include_when: '${ feature.tags.has("min_height") || feature.tags.has("building:min_level") }'
-            value: '${ feature.tags.has("min_height") && feature.tags.min_height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.min_height.replace("m", "").trim()) : feature.tags.has("building:min_level") && feature.tags["building:min_level"].matches("^[0-9]+([.][0-9]+)?$") ? double(feature.tags["building:min_level"]) * 3.66 : 0.0 }'
+            include_when: '${ feature.tags.has("min_height") }'
+            value: '${ feature.tags.min_height.matches("^[0-9]+([.][0-9]+)? ?m?$") ? double(feature.tags.min_height.replace("m", "").trim()) : 0.0 }'
 
   - id: roads
     features:
