@@ -18,7 +18,7 @@ from grid_tiles import tiles_for_polyline
 KEEP = [
     "lanes", "lanes:forward", "lanes:backward",
     "turn:lanes", "turn:lanes:forward", "turn:lanes:backward",
-    "oneway", "junction", "maxspeed", "ref", "name", "highway",
+    "oneway", "junction", "maxspeed", "ref", "name", "highway", "lit",
     "destination", "destination:ref", "destination:lanes",
     "bus:lanes", "bus:lanes:forward", "bus:lanes:backward",
     "psv:lanes", "psv:lanes:forward", "psv:lanes:backward",

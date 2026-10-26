@@ -55,6 +55,12 @@ class LaneDetailPreservationTests(unittest.TestCase):
         self.assertNotIn("ctx", way)
         self.assertEqual((1, 1, 0), (stats["with_lanes"], stats["with_turn_lanes"], stats["context_only"]))
 
+    def test_keeps_street_lighting_for_lane_timing(self):
+        # The app times lane guidance from the national limit, which depends on street lighting.
+        tags = {"highway": "primary", "lanes": "2", "oneway": "yes", "lit": "no"}
+        result, _ = self.export([feature("way/9", tags, [[-2.2, 53.4], [-2.19, 53.41]])])
+        self.assertEqual("no", result["ways"][0]["t"]["lit"])
+
     def test_context_roads_are_retained_without_lane_claims(self):
         tags = {"highway": "residential", "name": "Unsurveyed Road", "layer": "1", "bridge": "yes"}
         result, stats = self.export([feature("way/8", tags, [[-2.2, 53.4], [-2.19, 53.41]])])
