@@ -1,0 +1,44 @@
+name: UK join
+# One UK set of guidance data (lanes, speed limits, road information, road details,
+# places, cameras, charge zones) joined from every published region, so the app reads
+# the whole UK instead of only the region it is in. Runs after each regional update;
+# the hourly map-watchdog.yml starts it again if it was missed or failed. Does nothing
+# when no region changed since the last join.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Join again even when no region changed
+        type: boolean
+        default: false
+  workflow_run:
+    workflows: [Progressive regional maps]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/uk-join.yml
+      - scripts/uk_join.py
+permissions:
+  contents: write
+concurrency:
+  group: uk-join
+  cancel-in-progress: false
+jobs:
+  join:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Check the join
+        run: python3 -m unittest tests.test_uk_join
+      - name: Join every region into one UK set
+        env:
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: python3 scripts/uk_join.py --repo "$GITHUB_REPOSITORY" $FORCE
