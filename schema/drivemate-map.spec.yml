@@ -24,6 +24,12 @@ examples:
   - name: residential street is minor
     input: { source: osm, geometry: line, tags: { highway: residential, name: Ashfield Road } }
     output: { layer: roads, min_zoom: 12, tags: { kind: minor, name: Ashfield Road } }
+  - name: road on a bridge marked, so it can be drawn over a route passing under it
+    input: { source: osm, geometry: line, tags: { highway: residential, name: Canal Street, bridge: 'yes' } }
+    output: { layer: roads, min_zoom: 12, tags: { kind: minor, name: Canal Street, bridge: true } }
+  - name: viaduct marked as a bridge
+    input: { source: osm, geometry: line, tags: { highway: primary, ref: A6, bridge: viaduct } }
+    output: { layer: roads, at_zoom: 12, tags: { kind: primary, ref: A6, shield: white, bridge: true } }
   - name: driveway only close in
     input: { source: osm, geometry: line, tags: { highway: service, service: driveway } }
     output: { layer: roads, min_zoom: 14, tags: { kind: service } }
