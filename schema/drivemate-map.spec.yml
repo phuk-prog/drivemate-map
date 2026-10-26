@@ -41,13 +41,13 @@ examples:
     output: { layer: roads, min_zoom: 13, tags: { kind: construction } }
   - name: building with storeys
     input: { source: osm, geometry: polygon, tags: { building: 'yes', building:levels: '4' } }
-    output: { layer: buildings, min_zoom: 14, tags: { height: 14.64 } }
+    output: { layer: buildings, min_zoom: 14, tags: { height: 0.0 } }
   - name: building with a height in metres
     input: { source: osm, geometry: polygon, tags: { building: 'yes', height: '12 m' } }
-    output: { layer: buildings, tags: { height: 12.0 } }
-  - name: building with nothing mapped is low
+    output: { layer: buildings, tags: { height: 12.0, height_known: true } }
+  - name: building with nothing mapped has unknown height
     input: { source: osm, geometry: polygon, tags: { building: 'yes' } }
-    output: { layer: buildings, tags: { height: 5.0 } }
+    output: { layer: buildings, tags: { height: 0.0 } }
   - name: town
     input: { source: osm, geometry: point, tags: { place: town, name: Stockport, population: '136082' } }
     output: { layer: places, min_zoom: 7, tags: { kind: town, name: Stockport, population: 136082 } }
@@ -76,3 +76,9 @@ examples:
     input: { source: osm, geometry: polygon, tags: { natural: water } }
     output: { layer: water, min_zoom: 6 }
 
+  - name: malformed building height is not extruded
+    input: { source: osm, geometry: polygon, tags: { building: 'yes', height: 'unknown' } }
+    output: { layer: buildings, tags: { height: 0.0 } }
+  - name: negative building height is not extruded
+    input: { source: osm, geometry: polygon, tags: { building: 'yes', height: '-4' } }
+    output: { layer: buildings, tags: { height: 0.0 } }
