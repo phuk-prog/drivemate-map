@@ -1,8 +1,10 @@
 name: DMN road pieces (UK)
 
 # DMN's UK road map in pieces for the DriveMate app: quarter-degree squares
-# with every road plus one UK motorway/trunk piece, read by DMN's own map reader from DriveMate's
-# own OSM snapshot (the map-data build's osm-source). The app downloads and keeps the pieces a
+# with every road plus one UK motorway/trunk piece, written by DMN's map reader
+# (drivemate-tests tools/dmn_pack.py) from the UK, Isle of Man and Channel Islands extracts brought up
+# to the latest 01:00 / 14:00 slot. Rebuilt after a regional update whenever any region changed;
+# the hourly map-watchdog.yml starts it again if missed. The app downloads and keeps the pieces a
 # journey needs (dmn/DmnTiles.kt).
 #
 # Safe update and rollback: each build's pieces go in their own dated
@@ -16,52 +18,83 @@ name: DMN road pieces (UK)
 on:
   workflow_dispatch:
     inputs:
-      source_tag:
-        description: "Release holding osm-source (blank: the current map-data snapshot)"
-        required: false
       dmn_ref:
-        description: "DriveMate-Navigation branch or commit with tools/dmn_pack.py"
+        description: "drivemate-tests branch or commit with tools/dmn_pack.py"
         required: false
         default: main
+      force:
+        description: Build even when no region changed
+        type: boolean
+        default: false
       rollback:
-        description: "Put last week's index back instead of building"
+        description: "Put the previous index back instead of building"
         type: boolean
         required: false
         default: false
+  # Twice a day with the regional maps: rebuilt when any region changed since the last pieces.
   workflow_run:
-    workflows: [Build our own map data]
+    workflows: [Progressive regional maps]
     types: [completed]
     branches: [main]
-
 permissions:
   contents: write
-
 concurrency:
   group: dmn-pack
   cancel-in-progress: false
-
 env:
   DMN_REF: ${{ inputs.dmn_ref || 'main' }}
   GH_TOKEN: ${{ github.token }}
-
 jobs:
   source:
-    if: ${{ !inputs.rollback && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && vars.DMN_SOURCE_REPOSITORY != '')) }}
+    if: ${{ !inputs.rollback }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      due: ${{ steps.due.outputs.due }}
+      tag: ${{ steps.source.outputs.tag }}
     steps:
-      - id: tag
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: due
+        env:
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: python3 scripts/dmn_due.py --repo "$GITHUB_REPOSITORY" --work work/dmn-due $FORCE
+      - name: UK, Isle of Man and Channel Islands, up to the latest slot
+        id: source
+        if: steps.due.outputs.due == 'true'
         run: |
-          tag="${{ inputs.source_tag }}"
-          if [ -z "$tag" ]; then
-            tag=$(gh release download map-data-uk -R "$GITHUB_REPOSITORY" -p latest.json -O - | jq -r '.extra_tag')
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "OSM snapshot: $tag" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq osmium-tool >/dev/null
+          mkdir -p work/extracts
+          for path in europe/united-kingdom europe/isle-of-man europe/guernsey-jersey; do
+            name=$(basename "$path")-latest.osm.pbf
+            curl --fail --silent --show-error --location --proto '=https' --retry 8 --retry-all-errors \
+              --retry-delay 15 --connect-timeout 30 --max-time 2400 \
+              -o "work/extracts/$name" "https://download.geofabrik.de/$path-latest.osm.pbf"
+            want=$(curl --fail --silent --show-error --retry 8 --retry-all-errors --max-time 60 \
+              "https://download.geofabrik.de/$path-latest.osm.pbf.md5" | cut -d' ' -f1)
+            echo "$want  work/extracts/$name" | md5sum --check --strict
+          done
+          osmium merge work/extracts/*.osm.pbf -o work/merged.osm.pbf --overwrite
+          rm -f work/extracts/*.osm.pbf
+          python3 scripts/uk_map.py --repo "$GITHUB_REPOSITORY" --work work/dmn-src changes --source work/merged.osm.pbf --out uk.osm.pbf
+          slot=$(python3 -c "import json;print(json.load(open('work/dmn-src/state.json'))['changes'])")
+          echo "tag=OpenStreetMap UK to $slot" >> "$GITHUB_OUTPUT"
+          echo "OSM source: UK, Isle of Man and Channel Islands, changes to $slot" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: steps.due.outputs.due == 'true'
+        with:
+          name: dmn-source
+          path: |
+            uk.osm.pbf
+            work/dmn-due/regions.json
+          retention-days: 1
 
   pieces:
     needs: source
+    if: needs.source.outputs.due == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     strategy:
@@ -72,8 +105,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: ${{ vars.DMN_SOURCE_REPOSITORY || 'phuk-prog/DriveMate-Navigation' }}
-          token: ${{ secrets.MAP_BUILD_SOURCE_TOKEN || github.token }}
+          repository: phuk-prog/drivemate-tests
           ref: ${{ env.DMN_REF }}
           path: dmn
       - uses: actions/setup-python@v5
@@ -83,16 +115,13 @@ jobs:
         run: |
           sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq osmium-tool >/dev/null
           pip install -q osmium==4.3.1
-      - name: DriveMate's own OSM snapshot
-        run: |
-          mkdir -p src
-          gh release download "${{ needs.source.outputs.tag }}" -R "$GITHUB_REPOSITORY" -p 'osm-source*' -D src
-          python3 scripts/osm_source_snapshot.py verify src
-          cat $(ls src/osm-source.part* | sort) > uk.osm.pbf
-          rm -rf src
+          (cd dmn && python3 -m unittest tools.test_dmn_pack)
+      - uses: actions/download-artifact@v4
+        with:
+          name: dmn-source
       - name: Build pieces
         run: |
-          src="OSM snapshot ${{ needs.source.outputs.tag }}"
+          src="${{ needs.source.outputs.tag }}"
           if [ "${{ matrix.rows }}" = main ]; then
             python3 scripts/dmn_tiles.py main uk.osm.pbf --dmn dmn --out out --source "$src"
           else
@@ -114,15 +143,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: parts
-          pattern: dmn-*
+          pattern: dmn-[0-9m]*
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: dmn-source
+          path: source
       - name: Index (names this build's dated release)
         id: index
         run: |
           rel="dmn-uk-$(date -u +%Y%m%d)-${{ github.run_number }}"
           echo "rel=$rel" >> "$GITHUB_OUTPUT"
-          python3 scripts/dmn_tiles.py index parts --source "OSM snapshot ${{ needs.source.outputs.tag }}" \
-            --built "$(date -u +%F)" --release "$rel" | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 scripts/dmn_tiles.py index parts --source "${{ needs.source.outputs.tag }}" \
+            --built "$(date -u +%F)" --release "$rel" --regions source/work/dmn-due/regions.json | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Safety check (every piece passes, no smaller than the live map)
         run: |
           gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -O live.json || rm -f live.json

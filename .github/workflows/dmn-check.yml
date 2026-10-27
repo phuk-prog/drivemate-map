@@ -18,7 +18,6 @@ env:
 
 jobs:
   check:
-    if: vars.DMN_SOURCE_REPOSITORY != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

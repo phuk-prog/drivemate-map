@@ -2,8 +2,8 @@
 map, downloading and keeping the bits needed.
 
 Squares of a quarter degree (dmn-<floor(lat*4)>_<floor(lon*4)>.dmnpack, every road) and one UK
-main-roads piece (dmn-main-uk.dmnpack: motorways and trunk roads), all written by DMN's own map
-reader (DriveMate-Navigation tools/dmn_pack.py) from DriveMate's own OSM snapshot. Each square is
+main-roads piece (dmn-main-uk.dmnpack: motorways and trunk roads), all written by DMN's map
+reader (drivemate-tests tools/dmn_pack.py) from the UK OpenStreetMap extract. Each square is
 read from an extract with a margin, so dead ends, barriers and turn bans at its edge are read as in
 the whole map; the phone joins squares by OSM node id.
 
@@ -143,6 +143,9 @@ def index(a):
            "attribution": "© OpenStreetMap contributors, ODbL 1.0",
            "main": {"file": main.name, "sha256": sha(main), "bytes": main.stat().st_size},
            "tiles": tiles, "regions": regions}
+    if a.regions:
+        # The regional catalogue these pieces answer to (dmn_due.py), for the twice-daily rebuild check.
+        doc["catalog_regions"] = json.loads(Path(a.regions).read_text())
     (out / "dmn-uk.json").write_text(json.dumps(doc, indent=1, sort_keys=True))
     total = sum(t["bytes"] for t in tiles.values())
     print(f"{len(tiles)} squares, {total / 1e6:.0f} MB; main roads {doc['main']['bytes'] / 1e6:.0f} MB, "
@@ -155,7 +158,7 @@ def main():
     for name in ("band", "main"):
         p = sub.add_parser(name)
         p.add_argument("pbf")
-        p.add_argument("--dmn", required=True, help="DriveMate-Navigation checkout")
+        p.add_argument("--dmn", required=True, help="drivemate-tests checkout (tools/dmn_pack.py)")
         p.add_argument("--out", required=True)
         p.add_argument("--work", default="work/dmn")
         p.add_argument("--source", default="DriveMate OSM snapshot")
@@ -167,6 +170,7 @@ def main():
     p.add_argument("--source", default="DriveMate OSM snapshot")
     p.add_argument("--built", default="")
     p.add_argument("--release", default="dmn-uk", help="the dated release holding this build's pieces")
+    p.add_argument("--regions", help="regions.json from dmn_due.py")
     a = ap.parse_args()
     {"band": band, "main": main_roads, "index": index}[a.cmd](a)
 
