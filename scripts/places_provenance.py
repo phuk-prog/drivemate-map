@@ -179,6 +179,12 @@ def validate(document):
         if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k]
                                                  for k in ('label', 'licence', 'attribution')):
             raise ValueError('Places provenance licence entry incomplete')
+    # Schema 1 source notices are publisher-owned, not user-supplied data. A
+    # changed licence, attribution, notice or evidence URL must never pass as
+    # the original provenance registry. Introduce a new schema when reviewing
+    # future upstream rights instead of silently rewriting this one.
+    if sources != SOURCES:
+        raise ValueError('Places provenance source rights registry mismatch')
     return document
 
 
