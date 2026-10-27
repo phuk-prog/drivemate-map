@@ -9,6 +9,7 @@ It is engineering evidence, NOT legal clearance: the licence text below is
 copied from the repository's own rights review, has not been independently
 verified, and does not include upstream NOTICE file contents.
 """
+import copy
 import json
 from pathlib import Path
 import re
@@ -130,7 +131,7 @@ def build(by_primary, input_counts, rejected, tile_files,
                 'value in the Overture input; a record citing several datasets is '
                 'counted under each, so totals can exceed the Overture record count.'),
         },
-        'sources': SOURCES,
+        'sources': copy.deepcopy(SOURCES),
         'limitations': LIMITATIONS,
     }
     validate(document)
