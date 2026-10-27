@@ -9,6 +9,7 @@ It is engineering evidence, NOT legal clearance: the licence text below is
 copied from the repository's own rights review, has not been independently
 verified, and does not include upstream NOTICE file contents.
 """
+import copy
 import json
 from pathlib import Path
 import re
@@ -130,7 +131,7 @@ def build(by_primary, input_counts, rejected, tile_files,
                 'value in the Overture input; a record citing several datasets is '
                 'counted under each, so totals can exceed the Overture record count.'),
         },
-        'sources': SOURCES,
+        'sources': copy.deepcopy(SOURCES),
         'limitations': LIMITATIONS,
     }
     validate(document)
@@ -179,6 +180,12 @@ def validate(document):
         if not isinstance(item, dict) or not all(isinstance(item.get(k), str) and item[k]
                                                  for k in ('label', 'licence', 'attribution')):
             raise ValueError('Places provenance licence entry incomplete')
+    # Schema 1 source notices are publisher-owned, not user-supplied data. A
+    # changed licence, attribution, notice or evidence URL must never pass as
+    # the original provenance registry. Introduce a new schema when reviewing
+    # future upstream rights instead of silently rewriting this one.
+    if sources != SOURCES:
+        raise ValueError('Places provenance source rights registry mismatch')
     return document
 
 
