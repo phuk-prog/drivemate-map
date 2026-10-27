@@ -3,14 +3,17 @@ name: Data source and publication regressions
 on:
   push:
     branches: [main]
+  # Full inexpensive preflight for every PR, including new source/fixture locations.
+  # No map downloads, map generation or publishing occurs in this workflow.
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: drivemate-data-source-validation
-  cancel-in-progress: false
+  group: drivemate-data-source-validation-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source:
