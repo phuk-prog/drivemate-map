@@ -33,6 +33,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      due: ${{ steps.clock.outputs.due }}
       month: ${{ steps.month.outputs.month }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -186,7 +187,7 @@ jobs:
 
   promote:
     needs: [plan, build]
-    if: always() && needs.plan.outputs.matrix != '' && needs.plan.outputs.matrix != '[]'
+    if: always() && needs.plan.outputs.due == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -199,6 +200,7 @@ jobs:
           name: regional-plan-${{ github.run_id }}
           path: work
       - uses: actions/download-artifact@v4
+        if: needs.build.result != 'skipped'
         with:
           pattern: regional-entry-*
           path: work/entries
