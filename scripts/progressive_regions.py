@@ -35,9 +35,9 @@ INITIAL = [
     {'id': 'manchester', 'name': 'Manchester area', 'bounds': [-2.35, 53.36, -2.12, 53.56],
      'source_url': GM_SOURCE, 'sample': [-2.2309, 53.4774], 'inland': True},
 ]
-# Crown dependencies outside Geofabrik's united-kingdom tree, published as
-# their own regions.
-ISLANDS = ('isle-of-man', 'guernsey-jersey')
+# Crown dependencies are outside the four-nation UK map scope. Retire
+# any historical catalogue references without deleting immutable releases.
+OUT_OF_SCOPE = frozenset(('isle-of-man', 'guernsey-jersey'))
 # Scripts that do not affect a region's files: changing them must not rebuild every region.
 NOT_BUILD_INPUTS = ('scripts/uk_overview.py', 'scripts/map_watchdog.py', 'scripts/daily_schedule.py',
                     'scripts/publish_map_data.py', 'scripts/uk_join.py', 'scripts/uk_map.py',
@@ -129,15 +129,6 @@ def expansion_plan(index):
                         'source_url': url, 'inland': key == 'greater-manchester'})
     if not choices:
         raise ValueError('No UK regional extracts discovered; refusing UK fallback')
-    for key in ISLANDS:
-        feature = records.get(key)
-        if not feature:
-            continue
-        props = feature['properties']
-        url = daily_source_probe.source_url(props.get('urls', {}).get('pbf'))
-        choices.append({'id': key, 'name': props.get('name', key),
-                        'bounds': flatten_coordinates(feature.get('geometry')),
-                        'source_url': url, 'inland': False})
     choices.append({'id': 'northern-ireland-area', 'name': 'Northern Ireland and border area',
                     'bounds': [-8.2, 54.0, -5.3, 55.5],
                     'source_url': 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',
@@ -503,10 +494,12 @@ def cmd_build(args, github):
 def merge_entries(live, entries):
     """The live catalogue with each built region's entry; a malformed entry is refused."""
     updated = copy.deepcopy(live)
+    for key in OUT_OF_SCOPE:
+        updated['regions'].pop(key, None)
     for entry in entries:
         key = entry.get('id')
-        if not isinstance(key, str) or not ID.fullmatch(key):
-            raise ValueError('Unsafe region entry')
+        if not isinstance(key, str) or not ID.fullmatch(key) or key in OUT_OF_SCOPE:
+            raise ValueError('Unsafe or out-of-scope region entry')
         updated['regions'][key] = entry
     return validate_catalog(updated)
 
@@ -517,9 +510,10 @@ def cmd_promote(args, github):
     planned = json.loads(Path(args.plan).read_text())
     built = {e.get('id') for e in entries}
     failed = sorted(set(planned['regions']) - built)
-    if entries:
-        live = load_catalog(github, args.work / 'live')
-        publish_catalog(github, live, merge_entries(live, entries), args.work)
+    live = load_catalog(github, args.work / 'live')
+    updated = merge_entries(live, entries)
+    if entries or updated != live:
+        publish_catalog(github, live, updated, args.work)
     print(f"Promoted {len(entries)} regions for {planned['changes_slot']}: " + ', '.join(sorted(built)))
     if failed:
         # Left behind the slot; the hourly watchdog starts another update for them.
