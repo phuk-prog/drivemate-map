@@ -50,8 +50,14 @@ def identity(catalog):
 
 
 def sources_key(copies):
-    """The regional files one joined file is made from; equal keys need no rebuild."""
-    return hashlib.sha256(json.dumps(sorted(c['sha256'] for c in copies)).encode()).hexdigest()
+    """Cache by newest-first precedence; only overlapping squares need v2 rebuild."""
+    digests = [c['sha256'] for c in copies]
+    # merge() keeps the first regional road copy. Sorting digests loses that
+    # priority; version the multi-source key so legacy sorted keys cannot
+    # silently reuse a join made with the opposite region winning.
+    if len(digests) > 1:
+        digests.insert(0, 'priority-v2')
+    return hashlib.sha256(json.dumps(digests).encode()).hexdigest()
 
 
 def _unique(items, key):
