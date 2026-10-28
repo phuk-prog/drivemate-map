@@ -61,6 +61,23 @@ def road_squares(pbf, work):
     return found
 
 
+
+def require_uk_road_squares(squares):
+    """Reject worldwide OSM change contamination before any UK graph is written.
+
+    Deliberately broad UK envelope only. This cannot verify exact borders,
+    Crown Dependencies, Northern Ireland clipping, or legal road restrictions.
+    """
+    if not squares:
+        raise ValueError("DMN_UK_MAIN_ROADS_EMPTY")
+    outside = sorted((y, x) for y, x in squares
+                     if not (48.0 <= y / 4 <= 62.0 and -12.0 <= x / 4 <= 4.0))
+    if outside:
+        raise ValueError(f"DMN_UK_ENVELOPE_VIOLATION: {len(outside)} road squares outside "
+                         f"broad UK bounds; first three quarter-degree indices {outside[:3]}")
+    return squares
+
+
 def band(a):
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     work = Path(a.work); work.mkdir(parents=True, exist_ok=True)
@@ -104,11 +121,14 @@ def main_roads(a):
     main_pbf = work / "main.osm.pbf"
     run("osmium", "tags-filter", a.pbf, "w/highway=motorway,motorway_link,trunk,trunk_link,primary,primary_link",
         "r/type=restriction", "-o", main_pbf, "--overwrite")
+    # Inspect every source road square BEFORE writing the whole-main graph.
+    # The global OSM hourly diff may contain non-UK nodes/ways.
+    squares = require_uk_road_squares(road_squares(main_pbf, work))
     meta = pack(a.dmn, main_pbf, out / "dmn-main-uk.dmnpack", ["--source", a.source, "--main"])
     (out / "main.json").write_text(json.dumps(meta, indent=1))
     # The same main roads in 2-degree blocks, so a long trip loads only
     # the blocks along its way (the whole-UK piece is kept for older app versions)
-    blocks = {(y // 8, x // 8) for y, x in road_squares(main_pbf, work)}
+    blocks = {(y // 8, x // 8) for y, x in squares}
     for by, bx in sorted(blocks):
         s, w = by * BLOCK, bx * BLOCK
         src = work / f"main-{by}_{bx}.osm.pbf"
