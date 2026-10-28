@@ -299,6 +299,17 @@ def publish_region(github, region, out, tag, checkpoint, previous, directory, pr
     if quality.get('assets') != {name: {'bytes': p.stat().st_size, 'sha256': publisher.digest(p)}
                                  for name, p in files.items() if name != 'region-quality.json'}:
         raise ValueError('Regional assets changed after validation')
+    # A valid build-quality snapshot alone cannot certify the rights metadata.
+    # Check the *complete logical regional bundle* before any remote writes;
+    # immutable shard reuse later may place these files on older release tags.
+    if any(publisher.PLACE_TILE.fullmatch(name) for name in files):
+        if publisher.places_provenance.FILENAME not in files:
+            raise ValueError('Regional places provenance sidecar missing')
+        if not set(publisher.LICENSE_ASSETS) <= files.keys():
+            raise ValueError('Regional places licence/notice assets missing')
+    if publisher.places_provenance.FILENAME in files:
+        publisher.places_provenance.validate(
+            json.loads(files[publisher.places_provenance.FILENAME].read_text()))
     reused = {}
     prior = previous['regions'].get(region['id'])
     if prior:
