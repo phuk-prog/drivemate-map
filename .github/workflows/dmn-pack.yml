@@ -2,8 +2,8 @@ name: DMN road pieces (UK)
 
 # DMN's UK road map in pieces for the DriveMate app: quarter-degree squares
 # with every road plus one UK motorway/trunk piece, written by DMN's map reader
-# (drivemate-tests tools/dmn_pack.py) from the UK, Isle of Man and Channel Islands extracts brought up
-# to the latest 01:00 / 14:00 slot. Rebuilt after a regional update whenever any region changed;
+# (drivemate-tests tools/dmn_pack.py) from the Geofabrik UK extract (including
+# Northern Ireland), updated and clipped back to its UK source polygon. Rebuilt after a regional update whenever any region changed;
 # the hourly map-watchdog.yml starts it again if missed. The app downloads and keeps the pieces a
 # journey needs (dmn/DmnTiles.kt).
 #
@@ -61,28 +61,32 @@ jobs:
         env:
           FORCE: ${{ inputs.force && '--force' || '' }}
         run: python3 scripts/dmn_due.py --repo "$GITHUB_REPOSITORY" --work work/dmn-due $FORCE
-      - name: UK, Isle of Man and Channel Islands, up to the latest slot
+      - name: UK source and polygon, up to the latest slot
         id: source
         if: steps.due.outputs.due == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq osmium-tool >/dev/null
           mkdir -p work/extracts
-          for path in europe/united-kingdom europe/isle-of-man europe/guernsey-jersey; do
-            name=$(basename "$path")-latest.osm.pbf
-            curl --fail --silent --show-error --location --proto '=https' --retry 8 --retry-all-errors \
-              --retry-delay 15 --connect-timeout 30 --max-time 2400 \
-              -o "work/extracts/$name" "https://download.geofabrik.de/$path-latest.osm.pbf"
-            want=$(curl --fail --silent --show-error --retry 8 --retry-all-errors --max-time 60 \
-              "https://download.geofabrik.de/$path-latest.osm.pbf.md5" | cut -d' ' -f1)
-            echo "$want  work/extracts/$name" | md5sum --check --strict
-          done
-          osmium merge work/extracts/*.osm.pbf -o work/merged.osm.pbf --overwrite
-          rm -f work/extracts/*.osm.pbf
-          python3 scripts/uk_map.py --repo "$GITHUB_REPOSITORY" --work work/dmn-src changes --source work/merged.osm.pbf --out uk.osm.pbf
+          path=europe/united-kingdom
+          name=united-kingdom-latest.osm.pbf
+          curl --fail --silent --show-error --location --proto '=https' --retry 8 --retry-all-errors \
+            --retry-delay 15 --connect-timeout 30 --max-time 2400 \
+            -o "work/extracts/$name" "https://download.geofabrik.de/$path-latest.osm.pbf"
+          want=$(curl --fail --silent --show-error --retry 8 --retry-all-errors --max-time 60 \
+            "https://download.geofabrik.de/$path-latest.osm.pbf.md5" | cut -d' ' -f1)
+          echo "$want  work/extracts/$name" | md5sum --check --strict
+          curl --fail --silent --show-error --location --proto '=https' --retry 5 \
+            --retry-all-errors --max-time 120 -o work/uk-source.poly \
+            "https://download.geofabrik.de/europe/united-kingdom.poly"
+          test -s work/uk-source.poly
+          python3 scripts/uk_map.py --repo "$GITHUB_REPOSITORY" --work work/dmn-src changes \
+            --source "work/extracts/$name" --out uk.osm.pbf --polygon work/uk-source.poly
+          rm -f "work/extracts/$name"
           slot=$(python3 -c "import json;print(json.load(open('work/dmn-src/state.json'))['changes'])")
           echo "tag=OpenStreetMap UK to $slot" >> "$GITHUB_OUTPUT"
-          echo "OSM source: UK, Isle of Man and Channel Islands, changes to $slot" >> "$GITHUB_STEP_SUMMARY"
+          echo "OSM source: Geofabrik UK including Northern Ireland, changes to $slot" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source polygon SHA-256: $(sha256sum work/uk-source.poly | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: steps.due.outputs.due == 'true'
         with:
