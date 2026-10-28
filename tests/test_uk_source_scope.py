@@ -57,7 +57,7 @@ class UKSourceScopeTests(unittest.TestCase):
             self.assertEqual(root / "out.osm.pbf", output)
             self.assertEqual(1, len(calls))
             command, check = calls[0]
-            self.assertEqual(["osmium", "extract", "--polygon", str(polygon), "-s", "complete_ways"], command[:7])
+            self.assertEqual(["osmium", "extract", "--polygon", str(polygon), "-s", "complete_ways"], command[:6])
             self.assertIn(str(root / "updated.osm.pbf"), command)
             self.assertTrue(check)
 
