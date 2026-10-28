@@ -2,9 +2,10 @@
 
 The regions overlap and are brought up to date at different times, so their extracts
 cannot simply be glued together (the same road could appear twice in two versions).
-Instead the whole UK extract, with the Isle of Man and the Channel Islands, is brought up
-to the latest 01:00 / 14:00 slot with the same hourly OpenStreetMap changes the regions
-use, and built once with the same schema. It is made only when the regional catalogue
+Instead the Geofabrik United Kingdom extract (Great Britain and Northern Ireland) is
+brought up to the latest 01:00 / 14:00 slot with hourly OpenStreetMap changes,
+then clipped back to the matching Geofabrik UK source polygon before use. This
+polygon is a source boundary, not an independently verified legal border. It is made only when the regional catalogue
 changed since the last UK map, published on its own immutable tag, checked, and only then
 named by the pointer (ukmap.json on the map-data-ukmap release). If it fails or is too
 large, the app keeps drawing the regional maps.
@@ -19,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 
 import daily_schedule
 import osm_changes
@@ -104,6 +106,24 @@ def prune(github, current, keep=KEEP_MAPS):
             print('Removed old UK map release ' + tag)
 
 
+def clip_uk_source(source, polygon, out, *, run=subprocess.run):
+    """Fail closed on missing polygon or failed post-diff UK source extraction.
+
+    complete_ways keeps the complete geometry of legitimate border-crossing
+    ways. Geofabrik's source polygon is not a legal-border proof; verify NI
+    features and independent road truth separately before release acceptance.
+    """
+    polygon = Path(polygon)
+    out = Path(out)
+    if not polygon.is_file() or polygon.stat().st_size == 0:
+        raise ValueError('UK source polygon unavailable or empty; refusing map build')
+    run(['osmium', 'extract', '--polygon', str(polygon), '-s', 'complete_ways',
+         str(source), '-o', str(out), '--overwrite'], check=True)
+    if not out.is_file() or out.stat().st_size == 0:
+        raise ValueError('UK source polygon extraction produced no map; refusing publication')
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True)
@@ -114,6 +134,7 @@ def main():
     c = sub.add_parser('changes')
     c.add_argument('--source', type=Path, required=True)
     c.add_argument('--out', type=Path, required=True)
+    c.add_argument('--polygon', type=Path, required=True)
     p = sub.add_parser('publish')
     p.add_argument('--map', type=Path, required=True)
     args = parser.parse_args()
@@ -132,15 +153,22 @@ def main():
     if args.command == 'changes':
         slot = daily_schedule.latest_slot(datetime.now(timezone.utc))
         slot_text = slot.strftime('%Y-%m-%dT%H:%MZ')
+        updated = args.work / 'updated-world.osm.pbf'
+        clip_input = args.source
         try:
             changes = osm_changes.ensure(github, slot, args.work / 'changes')
-            osm_changes.apply(args.source, changes, args.out)
+            osm_changes.apply(args.source, changes, updated)
+            clip_input = updated
             applied = slot_text
             print('Applied OpenStreetMap changes up to ' + slot_text)
         except Exception as exc:
-            print(f'::warning::OpenStreetMap hourly changes unavailable; using the extracts as published: {exc}')
-            args.source.replace(args.out)
+            updated.unlink(missing_ok=True)
+            print(f'::warning::OpenStreetMap hourly changes unavailable; using the UK extract as published: {exc}')
             applied = 'unavailable'
+        # This MUST be outside the optional-update exception handler. A missing
+        # or failed polygon clip is a hard build failure, never an unscoped fallback.
+        clip_uk_source(clip_input, args.polygon, args.out)
+        updated.unlink(missing_ok=True)
         state.write_text(json.dumps({'slot': slot_text, 'changes': applied}))
         return
     region_ids = json.loads((args.work / 'regions.json').read_text())
