@@ -44,10 +44,10 @@ class UkJoinTests(unittest.TestCase):
         rows = [['Shop', 'shop', 'Town', 53.0, -2.0]]
         self.assertEqual(rows, uk_join.merge('places-211_-10.json.gz', [rows, rows + []]))
 
-    def test_unchanged_regional_copies_are_reused_not_rebuilt(self):
+    def test_unchanged_priority_reuses_and_reversed_priority_invalidates(self):
         copies = [{'sha256': 'b' * 64, 'bytes': 1, 'tag': 'map-data-region-x-r1-a1'},
                   {'sha256': 'a' * 64, 'bytes': 1, 'tag': 'map-data-region-y-r1-a1'}]
-        self.assertEqual(uk_join.sources_key(copies), uk_join.sources_key(list(reversed(copies))))
+        self.assertNotEqual(uk_join.sources_key(copies), uk_join.sources_key(list(reversed(copies))))
         previous = {'lanes-1_1.json': {'sha256': 'c' * 64, 'bytes': 9, 'tag': 'map-data-ukjoin-r5-a1',
                                        'sources': uk_join.sources_key(copies)}}
         built, reused = uk_join.build(None, {'lanes-1_1.json': copies}, previous, tempfile.mkdtemp())
