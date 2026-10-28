@@ -1,0 +1,169 @@
+name: Build UK offline routing graph
+
+# The legacy whole-map workflow is disabled. Regional display maps do not build
+# the Valhalla graph; retain its proven routing commands as a separate manual job.
+on:
+  workflow_dispatch:
+    inputs:
+      validate_only:
+        description: Build and validate graph without publishing release pointers
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  actions: read
+
+# Serialize with the legacy publisher if it is ever deliberately enabled.
+concurrency:
+  group: map-data
+  cancel-in-progress: false
+
+env:
+  REGION: europe/united-kingdom
+
+jobs:
+  routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      RTAG: routing-uk
+      EXPECTED_MAP_SOURCE_SHA256: '' # Independent routing source; fingerprint retained below
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq osmium-tool jq pigz > /dev/null
+          python3 -m venv work/vh
+          work/vh/bin/pip install -q pyvalhalla==3.6.3 osmium==4.3.1
+          curl -sSfL -o work/valhalla_build_extract https://raw.githubusercontent.com/valhalla/valhalla/3.6.3/scripts/valhalla_build_extract
+          echo '37daac2ff760552c79431b41653be6d457e7e30d051e400c29064208fce65ae4  work/valhalla_build_extract' | sha256sum --check --strict
+
+      - name: OpenStreetMap base (Geofabrik, whole UK)
+        run: |
+          curl -sSfL -o work/base.osm.pbf "https://download.geofabrik.de/${REGION}-latest.osm.pbf"
+          if [ -n "${EXPECTED_MAP_SOURCE_SHA256:-}" ]; then
+            printf '%s  %s\n' "$EXPECTED_MAP_SOURCE_SHA256" work/base.osm.pbf | sha256sum --check --strict
+          fi
+          sha256sum work/base.osm.pbf | cut -d' ' -f1 > work/source.sha256
+          date -u +%FT%TZ > work/source-retrieved.txt
+          ls -lh work/base.osm.pbf
+
+      - name: Build the road graph
+        run: |
+          set -euo pipefail
+          export PATH="$PWD/work/vh/bin:$PATH"
+          # Valhalla 3.6.3 ignores only_u_turn: replace simple ones with equivalent no_* relations.
+          work/vh/bin/python scripts/restriction_rewrite.py --input work/base.osm.pbf \
+            --output work/rewritten.osm.pbf --report work/restriction-rewrite.json
+          mv work/rewritten.osm.pbf work/base.osm.pbf
+          # Let Valhalla apply access and restriction semantics to the full source.
+          # Filtering highway classes can discard explicitly vehicle-accessible ways.
+          mkdir -p work/tiles
+          python3 work/vh/lib/python3*/site-packages/valhalla/valhalla_build_config.py \
+            --mjolnir-tile-dir "$PWD/work/tiles" --mjolnir-tile-extract "$PWD/work/uk.tar" \
+            --mjolnir-admin "$PWD/work/admin.sqlite" --mjolnir-concurrency "$(nproc)" > work/valhalla.json
+          # Country boundaries from the full file: they set driving side and country rules.
+          valhalla_build_admins -c work/valhalla.json work/base.osm.pbf 2>&1 | tail -n 3
+          valhalla_build_tiles -c work/valhalla.json work/base.osm.pbf 2>&1 | tail -n 5
+          python3 work/valhalla_build_extract -c work/valhalla.json -v 2>&1 | tail -n 2
+          rm -rf work/tiles work/base.osm.pbf
+          ls -lh work/uk.tar
+          jq -c '{counts, skipped_by_reason}' work/restriction-rewrite.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test journeys across the UK (must all work before publishing)
+        run: |
+          mkdir -p work/empty
+          work/vh/bin/python - <<'PY'
+          import json, math
+          from valhalla import Actor, get_config
+          a = Actor(get_config(tile_extract="work/uk.tar", tile_dir="work/empty", verbose=False))
+          trips = {
+              "Stockport - Liverpool": ((53.4052, -2.1575), (53.4075, -2.9919)),
+              "Stockport - Sheffield": ((53.4052, -2.1575), (53.3781, -1.4697)),
+              "Manchester - Wrexham": ((53.4774, -2.2309), (53.0466, -2.9925)),
+              "Carlisle - Gretna": ((54.8925, -2.9329), (54.9947, -3.0646)),
+              "London - Cardiff": ((51.5074, -0.1278), (51.4816, -3.1791)),
+              "Belfast - Lisburn": ((54.5973, -5.9301), (54.5162, -6.0580)),
+          }
+          bad = 0
+          for name, (s, e) in trips.items():
+              try:
+                  r = json.loads(a.route(json.dumps({"locations": [{"lat": s[0], "lon": s[1]}, {"lat": e[0], "lon": e[1]}], "costing": "auto", "units": "kilometers"})))
+                  km = r["trip"]["summary"]["length"]
+                  crow = 6371 * math.acos(min(1, math.sin(math.radians(s[0])) * math.sin(math.radians(e[0])) + math.cos(math.radians(s[0])) * math.cos(math.radians(e[0])) * math.cos(math.radians(e[1] - s[1]))))
+                  ok = crow <= km <= crow * 2.5
+                  print(f"{'ok ' if ok else 'BAD'} {name}: {km:.1f} km by road ({crow:.1f} km straight)")
+                  bad += not ok
+              except Exception as ex:
+                  print(f"BAD {name}: {ex}")
+                  bad += 1
+          raise SystemExit(1 if bad else 0)
+          PY
+
+      - name: Survey extra UK road connections (diagnostics, never invented turns)
+        run: |
+          mkdir -p work/empty
+          work/vh/bin/python scripts/routing_connectivity.py \
+            --graph work/uk.tar --report work/routing-connectivity.json
+          cat work/routing-connectivity.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the road graph
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.validate_only == false)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y%m%d)-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          export STAMP
+          mkdir -p work/routing-out
+          sha256sum work/uk.tar | cut -d' ' -f1 > work/graph.sha256
+          stat -c %s work/uk.tar > work/graph.bytes
+          pigz -6 -c work/uk.tar > work/uk.tar.gz
+          split -b 1900M -d -a 2 work/uk.tar.gz "work/routing-out/valhalla-uk-$STAMP.tar.gz.part"
+          rm work/uk.tar.gz
+          python3 - <<'PYTHON'
+          import datetime, json, os
+          from pathlib import Path
+          out = Path('work/routing-out')
+          parts = sorted(out.glob('*.part*'))
+          document = {
+              'engine': 'valhalla-3.6.3',
+              'sha256': Path('work/graph.sha256').read_text().strip(),
+              'bytes': int(Path('work/graph.bytes').read_text()),
+              'download_bytes': sum(p.stat().st_size for p in parts),
+              'built': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'parts': [p.name for p in parts],
+              'source': {
+                  'licence': 'ODbL-1.0', 'license_url': 'https://opendatacommons.org/licenses/odbl/1-0/', 'attribution': '© OpenStreetMap contributors',
+                  'url': 'https://download.geofabrik.de/' + os.environ['REGION'] + '-latest.osm.pbf',
+                  'sha256': Path('work/source.sha256').read_text().strip(),
+                  'retrieved_at': Path('work/source-retrieved.txt').read_text().strip()},
+              'build_commit': os.environ['GITHUB_SHA'],
+              'build_run': os.environ['GITHUB_RUN_ID'],
+              'coverage_validation': 'Six route smoke checks; not proof of every road or legal restriction'}
+          (out / 'routing-uk.json').write_text(json.dumps(document, indent=2) + '\n')
+          PYTHON
+          python3 scripts/publish_routing_data.py --repo "$GITHUB_REPOSITORY" \
+            --out work/routing-out --tag "routing-uk-$STAMP"
+          echo 'Graph chunks and decoded checksum verified; previous generations retained.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain routing validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: uk-routing-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 3
+          if-no-files-found: warn
+          path: |
+            work/routing-connectivity.json
+            work/source.sha256
+            work/source-retrieved.txt
+
