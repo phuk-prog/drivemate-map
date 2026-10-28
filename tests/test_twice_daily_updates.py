@@ -21,7 +21,7 @@ def published(region, slot=None, md5='c' * 32):
 
 
 class IslandTests(unittest.TestCase):
-    def test_isle_of_man_and_channel_islands_are_planned(self):
+    def test_isle_of_man_and_channel_islands_are_excluded_from_uk_scope(self):
         index = {'features': [
             feature('united-kingdom', 'europe', [-9, 49, 2, 61]),
             feature('england', 'united-kingdom', [-6, 50, 2, 56]),
@@ -33,8 +33,8 @@ class IslandTests(unittest.TestCase):
             feature('france', 'europe', [-5, 41, 10, 51],
                     'https://download.geofabrik.de/europe/france-latest.osm.pbf')]}
         ids = [r['id'] for r in regions.expansion_plan(index)]
-        self.assertIn('isle-of-man', ids)
-        self.assertIn('guernsey-jersey', ids)
+        self.assertNotIn('isle-of-man', ids)
+        self.assertNotIn('guernsey-jersey', ids)
         self.assertNotIn('france', ids)
 
 
