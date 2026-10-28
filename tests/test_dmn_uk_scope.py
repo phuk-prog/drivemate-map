@@ -37,7 +37,7 @@ class UkDmnSourceScope(unittest.TestCase):
                                    work=str(Path(tmp) / "work"),
                                    pbf="fixture.osm.pbf", dmn="dmn", source="fixture")
             with patch.object(dmn_tiles, "run"), patch.object(dmn_tiles, "road_squares",
-                     return_value={(-46 * 4, 170 * 4)}), patch.object(dmn_tiles, "pack") as pack:
+                     return_value={(-46 * 4, 170 * 4)}), patch.object(dmn_tiles, "pack", side_effect=AssertionError("PACK_CALLED_BEFORE_SCOPE")) as pack:
                 with self.assertRaisesRegex(ValueError, "DMN_UK_ENVELOPE_VIOLATION"):
                     dmn_tiles.main_roads(args)
                 pack.assert_not_called()
