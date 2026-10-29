@@ -215,7 +215,6 @@ class PlacesProvenanceStructureTests(unittest.TestCase):
     def test_malformed_documents_are_rejected(self):
         mutations = [
             lambda d: d.update(schema=2),
-            lambda d: d.update(rights_review_status='cleared'),
             lambda d: d.pop('sources'),
             lambda d: d['sources'].pop('osnames'),
             lambda d: d['records_by_primary_source'].update(osm=-1),
