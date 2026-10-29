@@ -16,6 +16,11 @@ name: DMN road pieces (UK)
 # releases, and any an index still names, are kept.
 
 on:
+  # One explicit M02 request on main triggers a complete source-backed rebuild.
+  # The request is committed only after the current DMN writer is merged/verified.
+  push:
+    branches: [main]
+    paths: ['ci/m02-dmn-rebuild-request.txt']
   workflow_dispatch:
     inputs:
       dmn_ref:
@@ -59,7 +64,7 @@ jobs:
           python-version: "3.12"
       - id: due
         env:
-          FORCE: ${{ inputs.force && '--force' || '' }}
+          FORCE: ${{ github.event_name == 'push' && '--force' || inputs.force && '--force' || '' }}
         run: python3 scripts/dmn_due.py --repo "$GITHUB_REPOSITORY" --work work/dmn-due $FORCE
       - name: UK source and polygon, up to the latest slot
         id: source
