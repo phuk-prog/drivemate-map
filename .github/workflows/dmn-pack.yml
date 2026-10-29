@@ -160,6 +160,7 @@ jobs:
           echo "rel=$rel" >> "$GITHUB_OUTPUT"
           python3 scripts/dmn_tiles.py index parts --source "${{ needs.source.outputs.tag }}" \
             --built "$(date -u +%F)" --release "$rel" --regions source/work/dmn-due/regions.json | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 scripts/dmn_rights.py prepare parts
       - name: Safety check (every piece passes, no smaller than the live map)
         run: |
           gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -O live.json || rm -f live.json
@@ -173,14 +174,16 @@ jobs:
             gh release create "$REL" -R "$GITHUB_REPOSITORY" --title "DMN road pieces (UK) $REL" \
               --notes "DMN road map pieces for the DriveMate app, from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)." --latest=false
           ls parts/*.dmnpack | xargs -n 40 gh release upload "$REL" -R "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$REL" -R "$GITHUB_REPOSITORY" --clobber parts/NOTICE.md parts/LICENSE-*.txt parts/NOTICE-Foursquare.txt
       - name: Check every piece uploaded whole
         env:
           REL: ${{ steps.index.outputs.rel }}
         run: |
           set -euo pipefail
           id=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$REL" --jq .id)
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$id/assets?per_page=100" --jq '.[]|{name,size}' | jq -s . > assets.json
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$id/assets?per_page=100" --jq '.[]|{name,size,digest}' | jq -s . > assets.json
           python3 scripts/dmn_pack_check.py uploaded parts/dmn-uk.json assets.json
+          python3 scripts/dmn_rights.py verify parts/dmn-uk.json assets.json
       - name: Switch phones to it (previous index kept, new index last)
         run: |
           set -euo pipefail
