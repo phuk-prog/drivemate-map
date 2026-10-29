@@ -1,13 +1,13 @@
-name: DMN road pieces cover the UK
+name: DMN published UK road geometry and seams
 
-# Every square where DriveMate's own OpenStreetMap snapshot has
-# car roads has a road piece, and named inhabited islands, border towns and the far corners each
-# have roads in their piece (scripts/dmn_coverage_check.py). Runs after each weekly road-piece build.
-
+# Focused real-road check using published DMN packs, no full UK source download.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "47 15 * * 1" # Mondays, after the road pieces are built
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/dmn-coverage.yml
+      - scripts/dmn_coverage_check.py
 
 permissions:
   contents: read
@@ -22,35 +22,27 @@ env:
 jobs:
   coverage:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -q osmium==4.3.1
-      - name: Live index and the named places' pieces
+      - name: Read current index and published real road pieces
         run: |
           set -euo pipefail
           mkdir -p pieces
           gh release download dmn-uk -R "$GITHUB_REPOSITORY" -p dmn-uk.json -D pieces
-          rel=$(jq -r '.release // "dmn-uk"' pieces/dmn-uk.json)
+          rel=$(jq -r '.release // empty' pieces/dmn-uk.json)
+          test -n "$rel"
+          echo "Road release: $rel" >> "$GITHUB_STEP_SUMMARY"
           for k in $(python3 scripts/dmn_coverage_check.py keys); do
-            f="dmn-$k.dmnpack"
-            if jq -e --arg k "$k" '.tiles[$k]' pieces/dmn-uk.json >/dev/null; then
-              gh release download "$rel" -R "$GITHUB_REPOSITORY" -p "$f" -D pieces
-            fi
+            file="dmn-$k.dmnpack"
+            jq -e --arg k "$k" '.tiles[$k].file' pieces/dmn-uk.json >/dev/null
+            gh release download "$rel" -R "$GITHUB_REPOSITORY" -p "$file" -D pieces
           done
-          echo "snapshot=$(jq -r '.source' pieces/dmn-uk.json | sed 's/^OSM snapshot //')" >> "$GITHUB_ENV"
-      - name: Squares with car roads, read from the same OpenStreetMap snapshot
-        run: |
-          set -euo pipefail
-          mkdir -p src
-          gh release download "$snapshot" -R "$GITHUB_REPOSITORY" -p 'osm-source*' -D src
-          python3 scripts/osm_source_snapshot.py verify src
-          cat $(ls src/osm-source.part* | sort) > uk.osm.pbf && rm -rf src
-          python3 scripts/dmn_coverage_check.py squares uk.osm.pbf osm-squares.json
-      - name: Check
+      - name: Check road nodes at 43 named UK and NI locations
         run: |
           set -o pipefail
-          python3 scripts/dmn_coverage_check.py check pieces --osm-squares osm-squares.json | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 scripts/dmn_coverage_check.py check pieces | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Check shared road nodes at selected border and regional seams
+        run: |
+          set -o pipefail
+          python3 scripts/dmn_coverage_check.py seams pieces | tee -a "$GITHUB_STEP_SUMMARY"
