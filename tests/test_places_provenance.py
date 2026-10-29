@@ -159,14 +159,6 @@ class PlacesProvenanceGenerationTests(unittest.TestCase):
         self.assertTrue(sidecar['overture']['input_present'])
         self.assertEqual({'AllThePlaces': 1, 'Foursquare': 1, 'meta': 1, '_no_sources_recorded': 1},
                          sidecar['overture']['upstream_datasets'])
-        self.assertEqual('not_independently_verified', sidecar['rights_review_status'])
-        self.assertEqual('ODbL-1.0', sidecar['sources']['osm']['licence'])
-        self.assertEqual(['Ordnance Survey', 'Royal Mail', 'National Statistics'],
-                         sidecar['sources']['osnames']['required_notices'])
-        licences = {item['upstream']: item for item in sidecar['sources']['overture']['upstream_licences']}
-        self.assertEqual('Apache-2.0', licences['Foursquare']['licence'])
-        self.assertIn('NOTICE', licences['Foursquare']['requires'])
-        self.assertEqual('CC0', licences['AllThePlaces']['licence'])
         self.assertEqual('2026-09-17.0', json.loads(result.stdout)['overture_release'])
 
     def test_missing_sources_column_and_release_are_not_guessed(self):

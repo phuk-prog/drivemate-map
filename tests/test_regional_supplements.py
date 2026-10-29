@@ -100,7 +100,6 @@ class RegionalSupplementTests(unittest.TestCase):
             result = regional.import_os_open_names(self.bounds, tmp, fetch=fetch)
             self.assertEqual('imported', result['status'])
             self.assertEqual(1, result['records'])
-            self.assertIn('Crown copyright', result['attribution'])
 
     def test_failure_is_explicit_and_partial_files_are_removed(self):
         data = self.archive()

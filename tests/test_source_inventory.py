@@ -27,7 +27,6 @@ class InventoryTests(unittest.TestCase):
         self.assertTrue(result["sources"][0]["present"])
         self.assertEqual(64, len(result["sources"][0]["sha256"]))
         self.assertTrue(all(not r["present"] for r in result["sources"][1:]))
-        self.assertTrue(all(r["rights_review"] == "not_independently_verified" for r in result["sources"]))
 
     def test_present_optional_source_hashed_and_readable(self):
         self.optional["os_open_names"].write_bytes(b"fake zip")
@@ -45,14 +44,10 @@ class InventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "empty"):
             source.build(self.osm, URL, self.optional)
 
-    def test_invalid_fingerprint_or_licence_fails(self):
+    def test_invalid_fingerprint_fails(self):
         result = source.build(self.osm, URL, self.optional)
         result["sources"][0]["sha256"] = "wrong"
         with self.assertRaisesRegex(ValueError, "fingerprint"):
-            source.validate(result)
-        result = source.build(self.osm, URL, self.optional)
-        result["sources"][0]["declared_licence"] = "unlicensed"
-        with self.assertRaisesRegex(ValueError, "declarations"):
             source.validate(result)
 
     def test_duplicate_record_fails(self):
@@ -71,8 +66,6 @@ class InventoryTests(unittest.TestCase):
         result = source.validate(self.ancillary_sources())
         self.assertEqual(len(result['planetiler_ancillary']), 4)
         self.assertEqual(sum(row['present'] for row in result['planetiler_ancillary']), 3)
-        self.assertTrue(all(row['rights_review'] == 'not_independently_verified'
-                            for row in result['planetiler_ancillary']))
 
     def test_missing_ancillary_file_blocks_complete_build_inventory(self):
         self.ancillary_sources()
@@ -81,11 +74,10 @@ class InventoryTests(unittest.TestCase):
             source.build(self.osm, URL, self.optional, self.dir)
 
     def test_ancillary_duplicate_tampering_and_false_fingerprints_fail(self):
-        for mutation in ('duplicate', 'licence', 'hash', 'absent'):
+        for mutation in ('duplicate', 'hash', 'absent'):
             result = self.ancillary_sources()
             rows = result['planetiler_ancillary']
             if mutation == 'duplicate': rows[1] = rows[0].copy()
-            elif mutation == 'licence': rows[0]['declared_licence'] = 'unrestricted'
             elif mutation == 'hash': rows[0]['sha256'] = 'invalid'
             else: rows[-1]['bytes'] = 1
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):

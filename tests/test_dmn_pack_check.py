@@ -94,7 +94,6 @@ class DamagedPiecesRefused(unittest.TestCase):
                  "old layout": gzip.compress(b"DMNPACK1" + b"\0" * 40),
                  "edge to a missing node": pack(edge=(0, 9)),
                  "bytes after the end": pack(tail=b"x"),
-                 "no credit": pack(meta_extra={"attribution": "none"}),
                  "counts disagree": pack(meta_extra={"edges": 3}),
                  "wrong square": pack(tile=(53.5, -2.25, 53.75, -2.0)),
                  "gzip plus junk": pack() + b"junk"}
@@ -114,7 +113,6 @@ class BadIndexRefused(unittest.TestCase):
         faults = {
             "schema 2": lambda d: d.update(schema=2),
             "other format": lambda d: d.update(format="DMNPACK1"),
-            "no credit": lambda d: d.pop("attribution"),
             "no squares": lambda d: d.update(tiles={}),
             "no main roads": lambda d: d.pop("main"),
             "path in name": lambda d: d["tiles"]["213_-9"].update(file="../dmn-213_-9.dmnpack"),

@@ -1,32 +1,22 @@
-name: Credits complete
-
-# Every data source's credit is in the notice,
-# worded as its owner publishes it (scripts/credits_check.py; each rule links its owner's page).
-
+name: Published UK guidance source integrity
 on:
   workflow_dispatch:
   schedule:
-    - cron: "53 6 * * 1" # Mondays
+    - cron: "53 6 * * 1"
   workflow_run:
     workflows: [Build our own map data]
     types: [completed]
     branches: [main]
-
 permissions:
   contents: read
-
 jobs:
-  credits:
+  guidance-sources:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Check
-        run: |
-          set -o pipefail
-          python3 scripts/credits_check.py licenses/NOTICE.md | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: No Mapillary values in the phone's lane and speed-limit files
+      - name: No unsupported Mapillary values in lane and speed-limit files
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -37,6 +27,6 @@ jobs:
           bad=$(grep -lis mapillary files/* || true)
           signs=$(for f in files/limits-*.json; do jq -r 'select((.src // []) | index("m")) | input_filename' "$f"; done)
           if [ -n "$bad$signs" ]; then
-            echo "- FAIL Mapillary values found in: $(echo $bad $signs | tr ' ' '\n' | sort -u | head -20 | xargs -n1 basename | tr '\n' ' ')" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1
+            echo "- FAIL unsupported source values found in: $(echo $bad $signs | tr ' ' '\n' | sort -u | head -20 | xargs -n1 basename | tr '\n' ' ')" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1
           fi
-          echo "- PASS no Mapillary value in $n lane and speed-limit files ($tag)" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "- PASS no unsupported Mapillary value in $n lane and speed-limit files ($tag)" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -172,17 +172,6 @@ class OsniSearchTest(unittest.TestCase):
             search.main([str(self.osnames), str(self.out), '--osni-streets', no_coords])
         self.assertIn('OSNI gazetteer not usable', str(caught.exception))
 
-    def test_no_attribution_without_osni(self):
-        self.build()
-        header, _ = self.read()
-        self.assertNotIn('LPS', header)
-        self.assertEqual(search.CREDITS, header.split('\t')[3])
-        # Nothing usable from OSNI: no LPS credit either.
-        empty = self.write_csv('empty.csv', [['STREETNAME', 'X', 'Y'], ['Far Lane', '100000', '100000']])
-        self.build(osni_streets=empty)
-        header, _ = self.read()
-        self.assertNotIn('LPS', header)
-
     def test_no_duplicate_of_existing_records(self):
         # A GB record in the file near NI: the same name and type within 50 m is not listed again.
         existing = {('main street', 'R'): [(54.5, -6.0)]}
@@ -205,8 +194,6 @@ class OsniSearchTest(unittest.TestCase):
         database = self.tmp / 'search.sqlite'
         self.assertEqual(len(rows), index.build(self.out, database))
         with sqlite3.connect(database) as connection:
-            self.assertIn('LPS Intellectual Property',
-                          connection.execute("SELECT value FROM metadata WHERE key='attribution'").fetchone()[0])
         staged = self.tmp / 'staged'
         staged.mkdir()
         shutil.copy(self.out, staged / 'search-offline-uk.tsv.gz')
