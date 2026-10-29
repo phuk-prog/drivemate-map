@@ -1,3 +1,3 @@
 M02 UK DMN routing pack refresh
-DMN writer commit: 0f6eeff167d41f45791ca8c4855f6f15fbfe2e2c
+DMN writer commit: be85be852f3a6840cc049051933065de1c7216f7
 Build from a fresh authenticated UK OSM source, verify all nation sentinels and old/new square inventories, then publish only after all pieces pass.
