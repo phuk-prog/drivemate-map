@@ -1,4 +1,6 @@
-"""DMN's UK road pieces cover the whole UK, islands and borders too.
+"""Sample presence and thresholded source-square inventory checks for DMN road pieces.
+
+These checks do not establish nationwide road, edge, attribute or legal completeness.
 
 Two checks, both against the published index (dmn-uk.json) and its pieces:
 
@@ -124,6 +126,19 @@ def check(folder: Path, squares: dict[str, int] | None) -> tuple[list[str], list
     return lines, fails
 
 
+def scope_report(squares: dict[str, int] | None) -> dict:
+    """Expose the actual eligible denominator without promoting presence to completeness."""
+    eligible = sum(n >= MIN_ROAD_POINTS for n in squares.values()) if squares else 0
+    return {
+        "source_square_denominator": eligible or None,
+        "minimum_road_points": MIN_ROAD_POINTS,
+        "excluded_sparse_road_squares": (
+            sum(0 < n < MIN_ROAD_POINTS for n in squares.values()) if squares is not None else None),
+        "national_road_completeness": "UNKNOWN",
+        "category1_acceptance": False,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -143,7 +158,10 @@ def main() -> int:
         return 0
     squares = json.loads(Path(a.osm_squares).read_text()) if a.osm_squares else None
     lines, fails = check(Path(a.dir), squares)
-    print(f"## Coverage: {'pass' if not fails else 'FAIL'}\n")
+    print(f"## Coverage component checks: {'pass' if not fails else 'FAIL'}\n")
+    print("Scope: " + json.dumps(scope_report(squares), sort_keys=True))
+    print("Sample proximity and square presence only; road/edge connectivity, attributes, "
+          "NI border semantics and legal coverage remain UNKNOWN.\n")
     print("\n".join(lines))
     for f in fails[:60]:
         print(f"  - {f}")

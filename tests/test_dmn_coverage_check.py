@@ -41,6 +41,23 @@ class Coverage(unittest.TestCase):
             self.assertTrue(fails[0].startswith("Far: no road within 2 km"))
             self.assertEqual(fails[1], "No piece: square 220_-8 has no piece")
 
+    def test_sample_only_report_has_unknown_denominator(self):
+        report = C.scope_report(None)
+        self.assertEqual(report["source_square_denominator"], None)
+        self.assertEqual(report["national_road_completeness"], "UNKNOWN")
+        self.assertFalse(report["category1_acceptance"])
+
+    def test_threshold_report_discloses_excluded_road_squares(self):
+        report = C.scope_report({"213_-9": 900, "214_-9": 4, "215_-9": 0})
+        self.assertEqual(report["source_square_denominator"], 1)
+        self.assertEqual(report["excluded_sparse_road_squares"], 1)
+        self.assertEqual(report["minimum_road_points"], 5)
+        self.assertEqual(report["national_road_completeness"], "UNKNOWN")
+        self.assertFalse(report["category1_acceptance"])
+
+    def test_empty_source_cannot_establish_denominator(self):
+        self.assertIsNone(C.scope_report({})["source_square_denominator"])
+
     def test_keys_and_distance(self):
         self.assertEqual(C.key(53.408, -2.158), "213_-9")
         self.assertAlmostEqual(C.metres((53.0, -2.0), (53.009, -2.0)), 1000, delta=5)
