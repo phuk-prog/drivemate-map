@@ -155,6 +155,36 @@ class SafePublish(unittest.TestCase):
         self.assertTrue(C.gate({**good, "pieces": 1}, live))
         self.assertTrue(C.gate({**good, "bytes": good["bytes"] // 2}, live))
 
+    def test_national_sentinels_and_exact_live_square_retention(self):
+        # Synthetic metadata checks publication safeguards, not road-law truth.
+        current = {"pieces": 10, "refused": {}, "bytes": 1000,
+                   "national_bytes": 1000,
+                   "tile_keys": ["213_-9", "223_-13", "205_-13", "218_-24"],
+                   "main_block_keys": ["main-26_-2"]}
+        self.assertEqual(C.gate(current, None), [])
+        for nation, key in C.NATION_SAMPLES.items():
+            with self.subTest(nation=nation):
+                partial = {**current, "tile_keys": [x for x in current["tile_keys"] if x != key]}
+                self.assertTrue(any(nation in reason for reason in C.gate(partial, None)))
+        # Keep all four city samples but drop one other live UK road quarter.
+        live = {"tiles": {key: {"bytes": 10} for key in current["tile_keys"] + ["212_-9"]},
+                "main": {"bytes": 10},
+                "regions": {"main-26_-2": {"bytes": 10}}}
+        reasons = C.gate(current, live)
+        self.assertTrue(any("live road quarters missing" in x for x in reasons))
+        restored = {**current, "tile_keys": current["tile_keys"] + ["212_-9"]}
+        self.assertEqual(C.gate(restored, live), [])
+        lost_block = {**restored, "main_block_keys": []}
+        self.assertTrue(any("live main-road blocks missing" in x for x in C.gate(lost_block, live)))
+
+    def test_regional_block_volume_does_not_mask_shrunken_national_graph(self):
+        live = {"tiles": {k: {"bytes": 100} for k in C.NATION_SAMPLES.values()},
+                "main": {"bytes": 1000}, "regions": {}}
+        receipt = {"pieces": 500, "refused": {}, "bytes": 20000,
+                   "tile_keys": list(C.NATION_SAMPLES.values()),
+                   "main_block_keys": [], "national_bytes": 100}
+        self.assertTrue(any("tiles/main roads" in s for s in C.gate(receipt, live)))
+
     def test_uploaded_finds_missing_or_partial_pieces(self):
         doc = index(pack(), pack(tile=None))
         full = [{"name": p["file"], "size": p["bytes"]} for p in (doc["tiles"]["213_-9"], doc["main"])]

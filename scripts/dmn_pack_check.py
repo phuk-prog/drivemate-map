@@ -195,21 +195,58 @@ def check_dir(folder: Path) -> dict:
             edges += meta["edges"]
         except Refused as exc:
             bad[entry["file"]] = str(exc)
+    # Keep actual inventory separate from aggregate counts: a disappearing
+    # UK square can otherwise be masked by new main-road block files.
+    tile_entries = doc["tiles"]
+    national_entries = list(tile_entries.values()) + [doc["main"]]
     return {"built": doc.get("built"), "source": doc.get("source"), "pieces": len(entries),
-            "refused": bad, "bytes": total, "edges": edges}
+            "refused": bad, "bytes": total, "edges": edges,
+            "tile_keys": sorted(tile_entries),
+            "main_block_keys": sorted(doc.get("regions", {})),
+            "national_bytes": sum(p["bytes"] for p in national_entries)}
+
+
+# Known road-bearing city-centre quarters in each UK nation. These are
+# coverage sentinels, NOT verification of every road or its legal restrictions.
+NATION_SAMPLES = {
+    "England/Stockport": "213_-9",
+    "Scotland/Edinburgh": "223_-13",
+    "Wales/Cardiff": "205_-13",
+    "Northern Ireland/Belfast": "218_-24",
+}
 
 
 def gate(new: dict, live: dict | None) -> list[str]:
     """Reasons a new build must not replace the live one (empty: safe to publish). A week whose
     pieces don't all pass, or that loses squares or much of the map, is held back."""
     why = [f"refused {name}: {reason}" for name, reason in sorted(new["refused"].items())]
+    # Only check national provenance on an actual checked directory receipt.
+    # Tests using abstract count-only summaries cannot claim national coverage.
+    current_tiles = set(new["tile_keys"]) if "tile_keys" in new else None
+    if current_tiles is not None:
+        for nation, key in NATION_SAMPLES.items():
+            if key not in current_tiles:
+                why.append(f"missing {nation} road quarter {key}")
     if live:
-        old_count = len(live.get("tiles", {})) + 1
+        old_tiles = set(live.get("tiles", {}))
+        old_blocks = set(live.get("regions", {}))
+        old_count = len(old_tiles) + 1
         old_bytes = sum(t["bytes"] for t in live.get("tiles", {}).values()) + live.get("main", {}).get("bytes", 0)
-        if new["pieces"] < 0.98 * old_count:
-            why.append(f"{new['pieces']} pieces, live has {old_count}")
-        if new["bytes"] < 0.9 * old_bytes:
-            why.append(f"{new['bytes'] / 1e6:.0f} MB, live has {old_bytes / 1e6:.0f} MB")
+        # Use tiles+main on *both* sides; adding regional blocks must never
+        # hide loss of a whole country or a smaller road tile.
+        national_count = len(current_tiles) + 1 if current_tiles is not None else new["pieces"]
+        national_bytes = new.get("national_bytes", new["bytes"])
+        if national_count < 0.98 * old_count:
+            why.append(f"{national_count} tiles/main pieces, live has {old_count}")
+        if national_bytes < 0.9 * old_bytes:
+            why.append(f"{national_bytes / 1e6:.0f} MB of tiles/main roads, live has {old_bytes / 1e6:.0f} MB")
+        if current_tiles is not None:
+            missing_tiles = sorted(old_tiles - current_tiles)
+            if missing_tiles:
+                why.append(f"{len(missing_tiles)} live road quarters missing, first {missing_tiles[:8]}")
+            missing_blocks = sorted(old_blocks - set(new.get("main_block_keys", [])))
+            if missing_blocks:
+                why.append(f"{len(missing_blocks)} live main-road blocks missing, first {missing_blocks[:8]}")
     return why
 
 
