@@ -47,7 +47,9 @@ concurrency:
   group: dmn-pack
   cancel-in-progress: false
 env:
-  DMN_REF: ${{ inputs.dmn_ref || 'main' }}
+  # Only the explicit M02 push request uses this exact graph-tested writer revision.
+  # Scheduled regional-map updates and manual dispatch keep their usual refs.
+  DMN_REF: ${{ inputs.dmn_ref || (github.event_name == 'push' && '0f6eeff167d41f45791ca8c4855f6f15fbfe2e2c' || 'main') }}
   GH_TOKEN: ${{ github.token }}
 jobs:
   source:
