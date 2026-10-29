@@ -3,11 +3,8 @@ name: DMN published UK road geometry and seams
 # Focused real-road check using published DMN packs, no full UK source download.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/dmn-coverage.yml
-      - scripts/dmn_coverage_check.py
+  schedule:
+    - cron: "47 15 * * 1" # retain existing weekly check, no duplicate push-triggered builds
 
 permissions:
   contents: read
