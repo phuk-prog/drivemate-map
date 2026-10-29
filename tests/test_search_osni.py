@@ -193,7 +193,6 @@ class OsniSearchTest(unittest.TestCase):
         self.assertTrue(any(r[0] == 'cheadle' and r[1] == 'T' for r in rows))
         database = self.tmp / 'search.sqlite'
         self.assertEqual(len(rows), index.build(self.out, database))
-        with sqlite3.connect(database) as connection:
         staged = self.tmp / 'staged'
         staged.mkdir()
         shutil.copy(self.out, staged / 'search-offline-uk.tsv.gz')
