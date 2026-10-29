@@ -6,6 +6,11 @@ name: DMN road pieces check (UK)
 # the DMN road pieces build.
 
 on:
+  pull_request:
+    paths:
+      - 'scripts/dmn_pack_check.py'
+      - 'tests/test_dmn_pack_check.py'
+      - '.github/workflows/dmn-check.yml'
   workflow_dispatch:
   schedule:
     - cron: "17 15 * * 1" # Mondays, after dmn-pack.yml
@@ -17,7 +22,19 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
+  unit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify M02 DMN release safety against current tests
+        run: python3 -m unittest discover -s tests -p 'test_dmn_pack_check.py' -v
+
   check:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
