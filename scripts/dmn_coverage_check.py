@@ -124,6 +124,49 @@ def check(folder: Path, squares: dict[str, int] | None) -> tuple[list[str], list
     return lines, fails
 
 
+
+SEAMS = {
+ "Manchester east-west": ("213_-10","213_-9","lon",-2.25),
+ "Gretna England-Scotland": ("219_-13","220_-13","lat",55.0),
+ "Chepstow Wales-England": ("206_-12","206_-11","lon",-2.75),
+ "Newry north-south": ("216_-26","217_-26","lat",54.25),
+ "Derry east-west": ("219_-31","219_-30","lon",-7.5),
+}
+
+def pack_road_node_ids(data: bytes) -> dict[int,tuple[float,float]]:
+    raw = gzip.decompress(data)
+    if raw[:8] != b"DMNPACK2":
+        raise ValueError("not a DMNPACK2 pack")
+    (n,) = struct.unpack_from("<I", raw, 8)
+    if len(raw) < 12 + 16*n:
+        raise ValueError("truncated road nodes")
+    return {id: (lat/1e7, lon/1e7) for lat,lon,id
+            in struct.iter_unpack("<iiq",raw[12:12+16*n])}
+
+def check_seams(folder: Path) -> tuple[list[str],list[str]]:
+    index = json.loads((folder/"dmn-uk.json").read_text())
+    tiles = index["tiles"]
+    lines, unknown, cache = [], [], {}
+    for name,(a,b,axis,coord) in SEAMS.items():
+        try:
+            for key in (a,b):
+                if key not in cache:
+                    item = tiles[key]["file"]
+                    cache[key] = pack_road_node_ids((folder/item).read_bytes())
+            left,right = cache[a],cache[b]
+            col = 0 if axis=="lat" else 1
+            common = sum(abs(left[n][col]-coord)<0.018 and
+                         abs(right[n][col]-coord)<0.018 for n in set(left)&set(right))
+            if common:
+                lines.append(f"- PASS {name}: {common} shared real road nodes close to {axis}={coord}")
+            else:
+                lines.append(f"- UNKNOWN {name}: no shared nodes near seam")
+                unknown.append(f"{name}: no proven near-seam continuity")
+        except (OSError,ValueError,KeyError,EOFError,struct.error) as e:
+            lines.append(f"- UNKNOWN {name}: road piece could not be checked")
+            unknown.append(f"{name}: {type(e).__name__}: {e}")
+    return lines,unknown
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -133,14 +176,24 @@ def main() -> int:
     c = sub.add_parser("check")
     c.add_argument("dir")
     c.add_argument("--osm-squares")
-    sub.add_parser("keys")  # the squares the named places need (the job downloads just those)
+    sub.add_parser("keys")  # location and seam squares
+    z = sub.add_parser("seams")
+    z.add_argument("dir")
     a = ap.parse_args()
     if a.cmd == "squares":
         Path(a.out).write_text(json.dumps(osm_squares(Path(a.pbf)), sort_keys=True))
         return 0
     if a.cmd == "keys":
-        print("\n".join(sorted({key(lat, lon) for ps in PLACES.values() for _, lat, lon in ps})))
+        wanted = {key(lat,lon) for ps in PLACES.values() for _,lat,lon in ps}
+        wanted.update(k for p in SEAMS.values() for k in p[:2])
+        print("\n".join(sorted(wanted)))
         return 0
+    if a.cmd == "seams":
+        lines,unknown = check_seams(Path(a.dir))
+        print("## Road-square seam checks\n" + "\n".join(lines))
+        for issue in unknown:
+            print("  - " + issue)
+        return 1 if unknown else 0
     squares = json.loads(Path(a.osm_squares).read_text()) if a.osm_squares else None
     lines, fails = check(Path(a.dir), squares)
     print(f"## Coverage: {'pass' if not fails else 'FAIL'}\n")
