@@ -1,0 +1,64 @@
+name: Worldwide overview source checks (Natural Earth)
+# Global SOURCE geometry snapshots, not yet a rendered worldwide PMTiles basemap.
+# Two normal checks per Europe/London day. No additional source-push rebuilds.
+on:
+  schedule:
+    - cron: '0 0 * * *'
+    - cron: '0 1 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified changed worldwide source snapshots
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/world-overview-sources.yml
+      - scripts/world_sources.py
+      - tests/test_world_sources.py
+permissions:
+  contents: write
+concurrency:
+  group: map-world-natural-earth-sources
+  cancel-in-progress: false
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - id: clock
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_CRON: ${{ github.event.schedule }}
+        run: python3 scripts/daily_schedule.py --event "$EVENT_NAME" --cron "$EVENT_CRON" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        if: steps.clock.outputs.due == 'true'
+        with:
+          python-version: '3.12'
+      - name: Install bounded geometry verifier
+        if: steps.clock.outputs.due == 'true'
+        run: python3 -m pip install -q shapely==2.2.0
+      - name: Verify worldwide small-scale source geometry, and publish changed snapshots only
+        if: steps.clock.outputs.due == 'true'
+        env:
+          PUBLISH_ALLOWED: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish == true) }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          args=()
+          if [ "$PUBLISH_ALLOWED" = true ]; then args+=(--publish); fi
+          python3 scripts/world_sources.py --repo "$GITHUB_REPOSITORY" --work work/world-source "${args[@]}" |
+            tee work/world-source-report.txt
+      - name: Keep source-coverage proof, never a raw planet or secret
+        if: always() && steps.clock.outputs.due == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: world-source-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 5
+          if-no-files-found: warn
+          path: work/world-source-report.txt
