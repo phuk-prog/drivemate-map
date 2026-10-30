@@ -1,0 +1,46 @@
+# Candidate low-zoom WORLD vector tile layout, not yet selected by DriveMate Android.
+# 110m Natural Earth polygons/cities are public domain. No world road-routing claim.
+schema_name: DriveMate worldwide overview candidate
+schema_description: Source-verified Natural Earth land, border geometry, and named places
+attribution: Natural Earth (public domain)
+args:
+  maxzoom: 5
+sources:
+  world_land:
+    type: geojson
+    local_path: work/world-tiles/world-land.geojson
+  world_countries:
+    type: geojson
+    local_path: work/world-tiles/world-countries.geojson
+  world_places:
+    type: geojson
+    local_path: work/world-tiles/world-places.geojson
+layers:
+  - id: world_land
+    features:
+      - source: world_land
+        geometry: polygon
+        min_zoom: 0
+        attributes:
+          - key: kind
+            tag_value: kind
+  - id: world_borders
+    features:
+      - source: world_countries
+        geometry: polygon
+        min_zoom: 1
+        attributes:
+          - key: kind
+            tag_value: kind
+          - key: name
+  - id: world_places
+    features:
+      - source: world_places
+        geometry: point
+        min_zoom: 2
+        attributes:
+          - key: kind
+            tag_value: kind
+          - key: name
+          - key: population
+            type: integer
