@@ -512,8 +512,10 @@ def cmd_promote(args, github):
     failed = sorted(set(planned['regions']) - built)
     live = load_catalog(github, args.work / 'live')
     updated = merge_entries(live, entries)
-    if entries or updated != live:
+    if updated != live:
         publish_catalog(github, live, updated, args.work)
+    else:
+        print('No changed catalogue content; no upload')
     print(f"Promoted {len(entries)} regions for {planned['changes_slot']}: " + ', '.join(sorted(built)))
     if failed:
         # Left behind the slot; the hourly watchdog starts another update for them.

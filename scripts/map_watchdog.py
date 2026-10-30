@@ -121,11 +121,20 @@ def read(url):
         return None
 
 
+def require_catalog(document):
+    """Missing or malformed live map evidence must never silently pass."""
+    if (not isinstance(document, dict)
+            or not isinstance(document.get('regions'), dict)
+            or not document['regions']):
+        raise RuntimeError('LIVE_REGIONAL_CATALOG_UNAVAILABLE: keep last-good map; no dispatch')
+    return document
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True)
     args = parser.parse_args()
-    catalog = read(CATALOG.format(repo=args.repo)) or {'regions': {}}
+    catalog = require_catalog(read(CATALOG.format(repo=args.repo)))
     pointer = read(OVERVIEW.format(repo=args.repo))
     join_pointer = read(UK_JOIN.format(repo=args.repo))
     map_pointer = read(UK_MAP.format(repo=args.repo))

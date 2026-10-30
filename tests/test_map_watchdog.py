@@ -15,6 +15,13 @@ def catalog(**slots):
 
 
 class WatchdogTests(unittest.TestCase):
+    def test_unavailable_live_catalog_fails_closed(self):
+        for invalid in (None, {}, {'regions': None}, {'regions': []}, {'regions': {}}):
+            with self.subTest(value=invalid), self.assertRaisesRegex(RuntimeError, 'LIVE_REGIONAL_CATALOG_UNAVAILABLE'):
+                w.require_catalog(invalid)
+        expected = catalog(scotland=SLOT)
+        self.assertIs(w.require_catalog(expected), expected)
+
     def test_stalled_update_is_restarted(self):
         start, notes = w.decide(False, False, catalog(wales=SLOT, scotland='2026-10-25T00:00Z'), FRESH, NOW)
         self.assertEqual([w.REGIONS_WORKFLOW], start)
