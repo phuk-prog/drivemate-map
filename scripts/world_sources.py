@@ -14,6 +14,7 @@ import re
 from urllib.request import urlopen
 
 from shapely.geometry import Point, shape
+from shapely.validation import make_valid
 
 import publish_map_data as publisher
 
@@ -49,6 +50,7 @@ def validate_geojson(name, raw):
     if not isinstance(features, list) or len(features) < SOURCES[name][1]:
         raise ValueError("Incomplete world GeoJSON feature collection")
     geometries = []
+    repairable_invalid_count = 0
     for feature in features:
         if not isinstance(feature, dict) or feature.get("type") != "Feature":
             raise ValueError("Malformed world feature")
@@ -57,8 +59,17 @@ def validate_geojson(name, raw):
                 "Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"}:
             raise ValueError("Malformed world geometry")
         candidate = shape(geom)
-        if candidate.is_empty or not candidate.is_valid:
-            raise ValueError("Invalid world geometry")
+        if candidate.is_empty:
+            raise ValueError("Empty world geometry")
+        # Generalised public-domain coastlines can have self-intersections.
+        # Reject unrepairable shapes; accept repaired topology ONLY in the
+        # coverage probe. Retain the ORIGINAL upstream bytes, and explicitly
+        # mark that a future PMTiles generator must repair before rendering.
+        if not candidate.is_valid:
+            candidate = make_valid(candidate)
+            if candidate.is_empty or not candidate.is_valid:
+                raise ValueError("Unrepairable Natural Earth geometry")
+            repairable_invalid_count += 1
         west, south, east, north = candidate.bounds
         if not (-180.000001 <= west <= east <= 180.000001 and
                 -90.000001 <= south <= north <= 90.000001):
@@ -70,7 +81,8 @@ def validate_geojson(name, raw):
         if absent:
             raise ValueError("Worldwide land source misses continents: " + ",".join(absent))
     return {"features": len(features), "bytes": len(raw),
-            "sha256": hashlib.sha256(raw).hexdigest()}
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "topology_repairs_required_for_future_render": repairable_invalid_count}
 
 
 def download_sources(directory, opener=urlopen):

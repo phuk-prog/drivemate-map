@@ -49,6 +49,7 @@ jobs:
           PUBLISH_ALLOWED: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish == true) }}
         run: |
           set -euo pipefail
+          mkdir -p work
           args=()
           if [ "$PUBLISH_ALLOWED" = true ]; then args+=(--publish); fi
           python3 scripts/world_sources.py --repo "$GITHUB_REPOSITORY" --work work/world-source "${args[@]}" |

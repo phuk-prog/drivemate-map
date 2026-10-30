@@ -161,7 +161,7 @@ class WorldSourceTests(unittest.TestCase):
             def read(self, n):
                 return self.raw[:n]
         with patch.object(world, "urlopen", side_effect=lambda url, timeout: Response(remote[url])):
-            outcome = world.download_sources(self.out / "download")
+            outcome = world.download_sources(self.out / "download", opener=world.urlopen)
         self.assertEqual(set(world.SOURCES), set(outcome))
         self.assertNotIn(world.POINTER_TAG, self.github.files)
 
