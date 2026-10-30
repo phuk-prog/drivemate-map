@@ -1,1 +1,5 @@
-Read REGISTER.md in drivemate-app first. (On GitHub: https://github.com/phuk-prog/drivemate-app/blob/main/REGISTER.md)
+Read the authoritative DriveMate app REGISTER on the test integration branch first: https://github.com/phuk-prog/drivemate-app/blob/test/continuous-drive-20261030/REGISTER.md
+
+Owner directive (30 October 2026): All new map code, schema, tests, workflow changes and candidate source improvements in THIS repository must be committed ONLY to branch `test/continuous-drive-20261030`, not main. Existing verified scheduled main-branch map publisher stays operational and is not changed by this staging instruction. Test branch must never automatically overwrite live UK/global pointers, publish live artifacts or replace signed app assets. Preserve immutable published source versions, licensing/provenance and last-good fallbacks. Two daily map checks should remain on their established main production workflows; no duplicate costly schedule.
+
+Continue the next independent prerequisite-ready change while immutable earlier SHA checks run. Record failures and move to a safe independent item; protect road-law/safety-critical lane or route instructions and maintain exact evidence and public-safe source. Only promote map changes after required validation and explicit guarded release approval.
