@@ -129,9 +129,29 @@ def validate_pointer(document):
     return document
 
 
+def read_pointer(github, directory):
+    """Read and verify the mutable pointer before deciding whether content changed."""
+    try:
+        inventory = github.inventory(POINTER_TAG)
+    except publisher.GitHubError as exc:
+        if 'HTTP 404' in str(exc):
+            return None
+        raise
+    if POINTER not in inventory:
+        return None
+    path = github.download(POINTER_TAG, POINTER, Path(directory))
+    publisher.verify_inventory(inventory, {POINTER: publisher.metadata(path, POINTER_TAG)}, POINTER_TAG)
+    return validate_pointer(json.loads(path.read_text()))
+
+
 def publish(github, archive, tag, directory, sources):
     """Upload the map to its own immutable tag, verify it, then move the pointer."""
     publisher.checked_tag(tag)
+    archive = Path(archive)
+    current = read_pointer(github, directory)
+    if current and current['map']['bytes'] == archive.stat().st_size and current['map']['sha256'] == publisher.digest(archive):
+        print('UK overview map content unchanged; no immutable upload or pointer rewrite')
+        return current
     publisher.upload_immutable(github, tag, {MAP_NAME: archive})
     publisher.verify_inventory(github.inventory(tag), {MAP_NAME: publisher.metadata(archive, tag)}, tag, exact=True)
     document = validate_pointer(pointer_document(tag, archive, sources))
@@ -157,7 +177,7 @@ def main():
         return
     tag = f"{POINTER_TAG}-r{os.environ['GITHUB_RUN_ID']}-a{os.environ['GITHUB_RUN_ATTEMPT']}"
     publish(publisher.GitHub(args.repo), archive, tag, args.work, SOURCES)
-    print('Published UK overview map: ' + tag)
+    print('Validated UK overview publication for candidate: ' + tag)
 
 
 if __name__ == '__main__':
