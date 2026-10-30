@@ -116,7 +116,7 @@ jobs:
           cat work/routing-connectivity.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish the road graph
-        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.validate_only == false)
+        if: github.ref == 'refs/heads/main' && inputs.validate_only == false
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
