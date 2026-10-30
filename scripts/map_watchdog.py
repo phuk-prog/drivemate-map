@@ -13,6 +13,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import subprocess
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import daily_schedule
@@ -113,12 +114,22 @@ def active(repo, workflow):
 
 
 def read(url):
+    """Never treat HTTP failure or invalid data as proof a map needs rebuilding.
+
+    HTTP 404 can denote an uninitialised optional pointer and may allow a
+    bootstrap. A timeout, quota/error response or malformed JSON must instead
+    fail the watchdog; the verified previous map remains published.
+    """
     try:
         with urlopen(url, timeout=60) as response:
             return json.loads(response.read(3_000_000))
-    except Exception as exc:
-        print(f'::warning::Could not read {url}: {exc}')
-        return None
+    except HTTPError as exc:
+        if exc.code == 404:
+            print(f'::notice::Optional map pointer not yet published: {url}')
+            return None
+        raise RuntimeError('REMOTE_MAP_READ_FAILED: do not enqueue rebuild on HTTP error') from exc
+    except (OSError, TimeoutError, ValueError) as exc:
+        raise RuntimeError('REMOTE_MAP_READ_FAILED: keep last-good releases') from exc
 
 
 def require_catalog(document):

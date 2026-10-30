@@ -15,6 +15,31 @@ def catalog(**slots):
 
 
 class WatchdogTests(unittest.TestCase):
+    def test_pointer_404_can_bootstrap_but_transient_http_or_bad_json_fails_closed(self):
+        from unittest.mock import patch
+        from urllib.error import HTTPError
+        import io
+
+        def error(code):
+            return HTTPError('https://example.org/a.json', code, 'failed', {}, None)
+
+        with patch.object(w, 'urlopen', side_effect=error(404)):
+            self.assertIsNone(w.read('https://example.org/a.json'))
+        with patch.object(w, 'urlopen', side_effect=error(503)):
+            with self.assertRaisesRegex(RuntimeError, 'REMOTE_MAP_READ_FAILED'):
+                w.read('https://example.org/a.json')
+
+        class Response:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def read(self, _max_size):
+                return b'not-json'
+        with patch.object(w, 'urlopen', return_value=Response()):
+            with self.assertRaisesRegex(RuntimeError, 'REMOTE_MAP_READ_FAILED'):
+                w.read('https://example.org/a.json')
+
     def test_unavailable_live_catalog_fails_closed(self):
         for invalid in (None, {}, {'regions': None}, {'regions': []}, {'regions': {}}):
             with self.subTest(value=invalid), self.assertRaisesRegex(RuntimeError, 'LIVE_REGIONAL_CATALOG_UNAVAILABLE'):
