@@ -14,13 +14,22 @@ class RoutingWorkflowTest(unittest.TestCase):
             publisher = next(step for step in workflow['jobs'][job]['steps']
                              if step.get('name', '').startswith('Publish'))
             self.assertEqual(publisher['if'],
-                             "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.validate_only == false)")
+                             "github.ref == 'refs/heads/main' && inputs.validate_only == false")
 
     def test_daily_probe_precedes_build_and_every_scheduled_publication_is_gated(self):
         path = Path(__file__).resolve().parents[1] / '.github/workflows/map-data.yml'
         workflow = yaml.safe_load(path.read_text())
         triggers = workflow.get('on', workflow.get(True))
-        self.assertEqual({'0 0 * * *', '0 1 * * *'}, {item['cron'] for item in triggers['schedule']})
+        # Legacy full-UK builder must not publish on a forgotten schedule.
+        self.assertIn('workflow_dispatch', triggers)
+        self.assertNotIn('schedule', triggers)
+        self.assertNotIn('push', triggers)
+        # Real 01:00/14:00 UK publishing is handled by regional-maps/uk-overview.
+        regional = yaml.safe_load((Path(__file__).resolve().parents[1] /
+                                  '.github/workflows/regional-maps.yml').read_text())
+        event = regional.get('on', regional.get(True))
+        self.assertEqual({'0 0 * * *', '0 1 * * *', '0 13 * * *', '0 14 * * *'},
+                         {item['cron'] for item in event['schedule']})
         self.assertIn('probe', workflow['jobs']['build']['needs'])
         self.assertIn("needs.probe.outputs.rebuild == 'true'", workflow['jobs']['build']['if'])
         for name in ('route_acceptance', 'restriction_acceptance', 'limit_acceptance', 'search_acceptance'):

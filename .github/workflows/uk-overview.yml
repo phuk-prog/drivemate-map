@@ -1,3 +1,4 @@
+# Scheduled at 01:00/14:00 UK; no duplicate full rebuild on source pushes.
 name: UK overview map
 # One low-detail map of the whole UK, Isle of Man and Channel Islands (zoom 0-10) for
 # zoomed-out views. Twice a day with the regional updates, at 01:00 and 14:00 UK.
@@ -13,12 +14,6 @@ on:
     - cron: '0 1 * * *'
     - cron: '0 13 * * *'
     - cron: '0 14 * * *'
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/uk-overview.yml
-      - scripts/uk_overview.py
-      - schema/drivemate-map.yml
 permissions:
   contents: write
 concurrency:

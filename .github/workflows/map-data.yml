@@ -1,4 +1,6 @@
-name: Build our own map data
+name: Legacy whole-UK map data (manual validation only)
+# Former builder retained for reproducibility, disabled for automatic publication.
+# Twice-daily updates belong to regional-maps.yml and uk-overview.yml.
 
 # Downloads the base map data and builds DriveMate's own map files for the whole UK:
 #  - drivemate.pmtiles: the map pictures (the app fetches just the squares it needs)
@@ -19,12 +21,6 @@ on:
         type: choice
         default: all
         options: [all, routing]
-  schedule:
-    - cron: "0 0 * * *" # 01:00 UK during BST; the guard selects exactly one trigger
-    - cron: "0 1 * * *" # 01:00 UK during GMT (02:00 on the spring clock-change day)
-  push:
-    branches: [main]
-    paths: [".github/workflows/map-data.yml", "scripts/**"]
 
 permissions:
   contents: write
@@ -567,7 +563,7 @@ jobs:
         run: python3 -m unittest discover -s tests -v
 
       - name: Publish a complete immutable generation, then update the pointer
-        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.validate_only == false)
+        if: github.ref == 'refs/heads/main' && inputs.validate_only == false
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -694,7 +690,7 @@ jobs:
           cat work/routing-connectivity.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish the road graph
-        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.validate_only == false)
+        if: github.ref == 'refs/heads/main' && inputs.validate_only == false
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

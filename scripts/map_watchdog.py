@@ -13,6 +13,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import subprocess
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import daily_schedule
@@ -113,19 +114,38 @@ def active(repo, workflow):
 
 
 def read(url):
+    """Never treat HTTP failure or invalid data as proof a map needs rebuilding.
+
+    HTTP 404 can denote an uninitialised optional pointer and may allow a
+    bootstrap. A timeout, quota/error response or malformed JSON must instead
+    fail the watchdog; the verified previous map remains published.
+    """
     try:
         with urlopen(url, timeout=60) as response:
             return json.loads(response.read(3_000_000))
-    except Exception as exc:
-        print(f'::warning::Could not read {url}: {exc}')
-        return None
+    except HTTPError as exc:
+        if exc.code == 404:
+            print(f'::notice::Optional map pointer not yet published: {url}')
+            return None
+        raise RuntimeError('REMOTE_MAP_READ_FAILED: do not enqueue rebuild on HTTP error') from exc
+    except (OSError, TimeoutError, ValueError) as exc:
+        raise RuntimeError('REMOTE_MAP_READ_FAILED: keep last-good releases') from exc
+
+
+def require_catalog(document):
+    """Missing or malformed live map evidence must never silently pass."""
+    if (not isinstance(document, dict)
+            or not isinstance(document.get('regions'), dict)
+            or not document['regions']):
+        raise RuntimeError('LIVE_REGIONAL_CATALOG_UNAVAILABLE: keep last-good map; no dispatch')
+    return document
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True)
     args = parser.parse_args()
-    catalog = read(CATALOG.format(repo=args.repo)) or {'regions': {}}
+    catalog = require_catalog(read(CATALOG.format(repo=args.repo)))
     pointer = read(OVERVIEW.format(repo=args.repo))
     join_pointer = read(UK_JOIN.format(repo=args.repo))
     map_pointer = read(UK_MAP.format(repo=args.repo))
