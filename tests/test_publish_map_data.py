@@ -75,6 +75,52 @@ class FakeGitHub:
 
 
 class PublisherTest(unittest.TestCase):
+    def test_initial_release_creation_quota_recovers_without_changing_existing_pointer(self):
+        """Actual 30 October UK-map failure occurs before the asset upload loop."""
+        candidate = self.out / 'uk-map-probe.bin'
+        candidate.write_bytes(b'source-verified-test-data')
+        self.github.files[publisher.LEGACY]['latest.json'] = b'{"tag":"old-verified-map"}'
+        prior = self.github.files[publisher.LEGACY]['latest.json']
+        calls = []
+        original = self.github.ensure_release
+
+        def initially_rate_limited(tag):
+            calls.append(tag)
+            if len(calls) == 1:
+                raise publisher.RateLimited('HTTP 403: API rate limit exceeded for installation')
+            return original(tag)
+
+        waits = []
+        self.github.wait_for_rate_limit = lambda: waits.append('quota-reset')
+        with patch.object(self.github, 'ensure_release', side_effect=initially_rate_limited):
+            result = publisher.upload_immutable(
+                self.github, 'map-data-ukmap-r123-a1', {'uk-map-probe.bin': candidate})
+        self.assertEqual(['quota-reset'], waits)
+        self.assertEqual(2, len(calls))
+        self.assertEqual(hashlib.sha256(candidate.read_bytes()).hexdigest(),
+                         result['uk-map-probe.bin']['sha256'])
+        self.assertEqual(prior, self.github.files[publisher.LEGACY]['latest.json'])
+
+    def test_initial_release_creation_still_fails_closed_after_bounded_quota_waits(self):
+        candidate = self.out / 'uk-map-probe.bin'
+        candidate.write_bytes(b'fixture-data')
+        prior = b'{"tag":"old-verified-map"}'
+        self.github.files[publisher.LEGACY]['latest.json'] = prior
+        waits = []
+        self.github.wait_for_rate_limit = lambda: waits.append('quota-reset')
+
+        def always_limited(_tag):
+            raise publisher.RateLimited('HTTP 403: rate limit exceeded')
+
+        with patch.object(publisher, 'MAX_RATE_LIMIT_WAITS', 1):
+            with patch.object(self.github, 'ensure_release', side_effect=always_limited):
+                with self.assertRaises(publisher.RateLimited):
+                    publisher.upload_immutable(
+                        self.github, 'map-data-ukmap-r124-a1', {'uk-map-probe.bin': candidate})
+        self.assertEqual(['quota-reset'], waits)
+        self.assertEqual(prior, self.github.files[publisher.LEGACY]['latest.json'])
+        self.assertNotIn('map-data-ukmap-r124-a1', self.github.files)
+
     def test_versioned_map_keeps_the_legacy_archive_in_the_same_verified_generation(self):
         own = b'PMTiles\x03' + b'candidate' * 4
         (self.out / 'drivemate-v1.pmtiles').write_bytes(own)

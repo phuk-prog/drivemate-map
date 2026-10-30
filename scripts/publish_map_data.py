@@ -428,12 +428,31 @@ def settle_inventory(github, tag, existing, attempts=6, pause=10):
     raise ValueError('GitHub asset digest unavailable or invalid')
 
 
+def ensure_immutable_release(github, tag):
+    """Retry a rate-limited release CREATE before starting immutable asset uploads.
+
+    The upload loop below already retries quota exhaustion while writing assets,
+    but a new release's initial create is also a write and can hit HTTP 403.
+    A retry is idempotent: ensure_release first reads the existing tag, so a
+    request that created the tag before losing its response will be recovered.
+    Keep an immutable release/pointer untouched until upload verification succeeds.
+    """
+    for attempt in range(MAX_RATE_LIMIT_WAITS + 1):
+        try:
+            github.ensure_release(tag)
+            return
+        except RateLimited:
+            if attempt == MAX_RATE_LIMIT_WAITS:
+                raise
+            github.wait_for_rate_limit()
+
+
 def upload_immutable(github, tag, files):
     checked_tag(tag)
     if tag == LEGACY or len(files) > ASSET_LIMIT:
         raise ValueError('Invalid immutable release or too many assets')
     wanted = {name: metadata(path, tag) for name, path in files.items()}
-    github.ensure_release(tag)
+    ensure_immutable_release(github, tag)
     existing = settle_inventory(github, tag, github.inventory(tag))
     if not set(existing) <= set(wanted):
         raise ValueError('Immutable release contains unexpected assets')
