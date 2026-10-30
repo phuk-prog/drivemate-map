@@ -12,6 +12,11 @@ import test_publish_map_data as fixtures
 class PointerGitHub(fixtures.FakeGitHub):
     repo = 'phuk-prog/drivemate-map'
 
+    def inventory(self, tag):
+        if tag not in self.files:
+            raise overview.publisher.GitHubError('HTTP 404: release not found')
+        return super().inventory(tag)
+
     def run(self, *args):
         assert args[:2] == ('release', 'upload') and '--clobber' in args
         path = Path(args[3])
@@ -53,6 +58,47 @@ class OverviewTests(unittest.TestCase):
         pointer = json.loads(github.files[overview.POINTER_TAG][overview.POINTER])
         self.assertEqual(overview.MAXZOOM, pointer['maxzoom'])
         self.assertEqual(700, pointer['map']['bytes'])
+
+    def test_same_verified_overview_never_uploads_a_new_binary_or_pointer(self):
+        github = PointerGitHub()
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / overview.MAP_NAME
+            archive.write_bytes(b'pmtiles' * 100)
+            old = overview.publish(github, archive, 'map-data-overview-r1-a1', tmp, overview.SOURCES)
+            old_pointer = github.files[overview.POINTER_TAG][overview.POINTER]
+            github.actions.clear()
+            result = overview.publish(github, archive, 'map-data-overview-r2-a1', tmp, overview.SOURCES)
+        self.assertEqual(old, result)
+        self.assertEqual(old_pointer, github.files[overview.POINTER_TAG][overview.POINTER])
+        self.assertFalse(any(a[0] in ('upload', 'pointer', 'ensure') for a in github.actions))
+        self.assertNotIn('map-data-overview-r2-a1', github.files)
+
+    def test_changed_overview_content_is_published_and_the_pointer_moves(self):
+        github = PointerGitHub()
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / overview.MAP_NAME
+            archive.write_bytes(b'pmtiles' * 100)
+            old = overview.publish(github, archive, 'map-data-overview-r1-a1', tmp, overview.SOURCES)
+            github.actions.clear()
+            archive.write_bytes(b'pmtiles' * 101)
+            new = overview.publish(github, archive, 'map-data-overview-r2-a1', tmp, overview.SOURCES)
+        self.assertNotEqual(old['map']['sha256'], new['map']['sha256'])
+        self.assertEqual('map-data-overview-r2-a1', new['map']['tag'])
+        self.assertTrue(any(a[0] == 'pointer' for a in github.actions))
+
+    def test_failed_pointer_inventory_fails_closed_before_new_asset_upload(self):
+        from unittest.mock import patch
+        github = PointerGitHub()
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / overview.MAP_NAME
+            archive.write_bytes(b'pmtiles' * 100)
+            overview.publish(github, archive, 'map-data-overview-r1-a1', tmp, overview.SOURCES)
+            github.actions.clear()
+            archive.write_bytes(b'pmtiles' * 101)
+            with patch.object(github, 'inventory', side_effect=overview.publisher.GitHubError('HTTP 503')):
+                with self.assertRaises(overview.publisher.GitHubError):
+                    overview.publish(github, archive, 'map-data-overview-r2-a1', tmp, overview.SOURCES)
+        self.assertFalse(any(a[0] in ('upload', 'pointer') for a in github.actions))
 
     def test_failed_map_upload_leaves_the_old_pointer(self):
         github = PointerGitHub()
