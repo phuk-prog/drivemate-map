@@ -115,6 +115,14 @@ class WorldMapPublisherTests(unittest.TestCase):
                              "map-data-worldtiles-r2-a1", self.folder)
         self.assertNotIn("map-data-worldtiles-r2-a1", self.github.files)
 
+    def test_pointer_cannot_reuse_missing_immutable_world_map(self):
+        """A valid rolling JSON receipt is not proof its referenced archive still exists."""
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        del self.github.files[doc["map"]["tag"]][worldmap.NAME]
+        with self.assertRaisesRegex(ValueError, "Asset verification failed"):
+            worldmap.read_pointer(self.github, self.folder / "missing-immutable")
+
     def test_world_tiles_pointer_rejects_mixed_source_release_generations(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
