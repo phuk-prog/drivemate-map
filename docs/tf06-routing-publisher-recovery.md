@@ -30,4 +30,4 @@ Android currently uses `valhalla-mobile:0.6.3` and `valhalla-models-config:0.5.2
 - TF-09 can prepare independent nation/address/road cohorts and NI border feature checks while graph build is pending. File counts and six journeys are insufficient denominators; rights and legal truth remain explicit unknowns.
 - TF-10 cannot claim online/offline parity until TF-07 supplies the same installed national graph and frozen authentic UK journey cohort. Prepare case IDs and denominator now, but report unavailable offline cases as blocked, never passed.
 
-Category 1 and J27-03 remain OPEN; no release, device or whole-UK acceptance claimed.
+This is a dated publisher-recovery observation, not current category status. The active UK-map and routing statuses are tracked only in the numbered [DriveMate register](https://github.com/phuk-prog/drivemate-app/blob/main/REGISTER.md); no release, device or whole-UK on-road acceptance is claimed here.
