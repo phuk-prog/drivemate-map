@@ -16,7 +16,7 @@ name: DMN road pieces (UK)
 # releases, and any an index still names, are kept.
 
 on:
-  # One explicit M02 request on main triggers a complete source-backed rebuild.
+  # One explicit category 2 road-pack rebuild request on main triggers a complete source-backed rebuild.
   # The request is committed only after the current DMN writer is merged/verified.
   push:
     branches: [main]

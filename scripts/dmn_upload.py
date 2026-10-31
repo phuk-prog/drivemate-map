@@ -1,6 +1,6 @@
 """Upload DMN road pieces to their dated release, surviving GitHub's API rate limit.
 
-C02.3: run #41163393325 (31 Oct 2026) built and checked every piece, then failed with
+2.3: run #41163393325 (31 Oct 2026) built and checked every piece, then failed with
 HTTP 403 "API rate limit exceeded" part-way through `gh release upload`, leaving 192 of
 772 assets. Phones were safe (the switch step was skipped), but the pack never shipped.
 

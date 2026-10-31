@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify M02 DMN release safety against current tests
+      - name: Verify category 2 routing-pack release safety against current tests
         run: python3 -m unittest discover -s tests -p 'test_dmn_pack_check.py' -v
 
   check:
