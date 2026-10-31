@@ -113,6 +113,11 @@ def publish(github, archive, source, pipeline, run_tag, directory):
     if not RUN_TAG.fullmatch(run_tag) or not re.fullmatch(r"[a-f0-9]{64}", pipeline):
         raise ValueError("Unsafe world output generation identity")
     checked = world_tiles.verify(archive)  # reads actual PMTiles/MVT tiles on six continents
+    # A count of six is insufficient: six unrelated tiles must not certify the
+    # required six continental land probes or authorize pointer promotion.
+    samples = checked.get("samples")
+    if not isinstance(samples, dict) or set(samples) != set(world_tiles.SAMPLES):
+        raise ValueError("Invalid continental sample identities in world tile verification")
     old = read_pointer(github, Path(directory) / "old-world")
     original = source_identity(source)
     size = Path(archive).stat().st_size
