@@ -41,7 +41,9 @@ class WorldMapPublisherTests(unittest.TestCase):
         self.archive = self.folder / worldmap.NAME
         self.archive.write_bytes(b"PMTiles\x03" + b"v" * 5200)
         self.verify = patch.object(worldmap.world_tiles, "verify",
-                                   return_value={"samples": {"africa": {}, "asia": {}}})
+                                   return_value={"samples": {
+                                       "north-america": {}, "south-america": {}, "europe": {},
+                                       "africa": {}, "asia": {}, "australia": {}}})
         self.verify.start()
         self.addCleanup(self.verify.stop)
 
@@ -130,6 +132,17 @@ class WorldMapPublisherTests(unittest.TestCase):
             broken["attribution"] = invalid
             with self.assertRaisesRegex(ValueError, "attribution"):
                 worldmap.validate_pointer(broken)
+        self.assertEqual(doc, worldmap.validate_pointer(doc))
+
+    def test_world_tiles_pointer_requires_six_continent_sample_proof(self):
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        for invalid in (0, 5, 7, "6", None):
+            broken = copy.deepcopy(doc)
+            broken["tested_sample_count"] = invalid
+            with self.assertRaisesRegex(ValueError, "six-continent"):
+                worldmap.validate_pointer(broken)
+        self.assertEqual(6, doc["tested_sample_count"])
         self.assertEqual(doc, worldmap.validate_pointer(doc))
 
     def test_source_and_world_release_types_cannot_claim_routing(self):
