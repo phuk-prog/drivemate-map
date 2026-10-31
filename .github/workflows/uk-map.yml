@@ -26,6 +26,8 @@ env:
   PLANETILER_SHA256: 5e5e7d8c4fc89b4573cc9109d0a543c3c2c798b2bcde7c3dcd2214031ee59c29
 jobs:
   build:
+    # Only consume a successful regional snapshot; the watchdog handles failed upstream runs.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:

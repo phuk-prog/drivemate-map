@@ -53,7 +53,7 @@ env:
   GH_TOKEN: ${{ github.token }}
 jobs:
   source:
-    if: ${{ !inputs.rollback }}
+    if: ${{ !inputs.rollback && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     outputs:
