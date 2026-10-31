@@ -60,6 +60,8 @@ def validate_pointer(doc):
         raise ValueError("Invalid world PMTiles release identity")
     if not re.fullmatch(r"[a-f0-9]{64}", str(doc.get("pipeline_sha256", ""))):
         raise ValueError("Invalid world generation pipeline fingerprint")
+    if doc.get("attribution") != "Natural Earth public domain":
+        raise ValueError("Untrusted world source attribution")
     inputs = doc.get("source_assets")
     if not isinstance(inputs, dict) or set(inputs) != set(world_sources.SOURCES):
         raise ValueError("Missing world source assets")

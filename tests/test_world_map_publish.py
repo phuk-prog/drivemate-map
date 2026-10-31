@@ -122,6 +122,16 @@ class WorldMapPublisherTests(unittest.TestCase):
             worldmap.validate_pointer(mixed)
         self.assertEqual(doc, worldmap.validate_pointer(doc))
 
+    def test_world_tiles_pointer_requires_natural_earth_attribution(self):
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        for invalid in ("Proprietary", "", None):
+            broken = copy.deepcopy(doc)
+            broken["attribution"] = invalid
+            with self.assertRaisesRegex(ValueError, "attribution"):
+                worldmap.validate_pointer(broken)
+        self.assertEqual(doc, worldmap.validate_pointer(doc))
+
     def test_source_and_world_release_types_cannot_claim_routing(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
