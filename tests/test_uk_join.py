@@ -149,3 +149,38 @@ class UkSearchJoinTests(unittest.TestCase):
                 uk_join.read(path)
             with self.assertRaisesRegex(ValueError, 'header'):
                 uk_join.merge(uk_join.SEARCH, [('#other\t1\t2026-10-31\tx', [])])
+
+
+class UkSearchPostcodePointTests(unittest.TestCase):
+    def test_named_centroid_wins_over_address_points(self):
+        lines = {'st48jg\tP\t\tStoke-on-Trent\t52.9645\t-2.1978', 'st48jg\tP\t\t\t52.96500\t-2.19800',
+                 'st48jg\tP\t\t\t52.96400\t-2.19700', 'trentham\tS\tTrentham\tStoke\t52.9659\t-2.1869'}
+        out = sorted(uk_join.one_point_per_postcode(lines))
+        self.assertEqual(['st48jg\tP\t\tStoke-on-Trent\t52.9645\t-2.1978', 'trentham\tS\tTrentham\tStoke\t52.9659\t-2.1869'], out)
+
+    def test_address_points_only_collapse_to_their_mean(self):
+        lines = {'ll758rj\tP\t\t\t53.30000\t-4.21000', 'll758rj\tP\t\t\t53.30200\t-4.21200'}
+        self.assertEqual(['ll758rj\tP\t\t\t53.30100\t-4.21100'], uk_join.one_point_per_postcode(lines))
+
+    def test_merge_keeps_one_line_per_postcode_and_stays_sorted(self):
+        h = '#drivemate-search-offline\t1\t2026-10-31\tContains OS data'
+        a = (h, ['sk43ab\tP\t\tStockport\t53.4158\t-2.2123', 'sk43ab\tP\t\t\t53.41600\t-2.21200'])
+        b = (h, ['sk43ab\tP\t\t\t53.41500\t-2.21300', 'stockport\tT\tStockport\tGreater Manchester\t53.4083\t-2.1494'])
+        _, rows = uk_join.merge(uk_join.SEARCH, [a, b])
+        self.assertEqual(1, sum(r.startswith('sk43ab\t') for r in rows))
+        self.assertEqual(sorted(rows), rows)
+
+
+class UkSearchAddressPointTests(unittest.TestCase):
+    def test_same_address_nearby_collapses_but_far_apart_is_kept(self):
+        near = ['1 high street\tO\t1 High Street\tTown\t53.00000\t-2.00000',
+                '1 high street\tO\t1 High Street\tTown\t53.00100\t-2.00000']  # ~111 m apart
+        far = ['1 high street\tO\t1 High Street\tTown\t53.10000\t-2.00000']    # ~11 km away
+        out = sorted(uk_join.one_point_per_postcode(set(near + far)))
+        self.assertEqual(['1 high street\tO\t1 High Street\tTown\t53.00050\t-2.00000',
+                          '1 high street\tO\t1 High Street\tTown\t53.10000\t-2.00000'], out)
+
+    def test_different_names_or_areas_never_merge(self):
+        lines = {'1 high street\tO\t1 High Street\tTown\t53.0\t-2.0', '1 high street\tO\t1 High Street\tOther\t53.0\t-2.0',
+                 'high street\tR\tHigh Street\tTown\t53.0\t-2.0', 'high street\tR\tHigh Street\tTown\t53.0\t-2.0001'}
+        self.assertEqual(sorted(lines), sorted(uk_join.one_point_per_postcode(lines)))

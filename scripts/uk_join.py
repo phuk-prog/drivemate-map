@@ -92,7 +92,73 @@ def merge_search(documents):
                 credits.append(credit)
         lines.update(rows)
     header = '\t'.join([SEARCH_HEADER, '1', max(dates), '; '.join(credits)])
-    return header, sorted(lines)
+    return header, sorted(one_point_per_postcode(lines))
+
+
+def one_point_per_address(groups, within_m=200.0):
+    """Copies of the same address label (type O) within [within_m] collapse to their mean point.
+
+    Regions add one point per address entrance/building part; the same label far apart (two
+    different places) is kept separately. Single points keep their original line unchanged.
+    """
+    import math
+    out = []
+    for (key, name, area), points in groups.items():
+        if len(points) == 1:
+            out.append(points[0][2])
+            continue
+        clusters = []
+        for lat, lon, line in sorted(points):
+            for c in clusters:
+                dy = (lat - c[0]) * 111_320.0
+                dx = (lon - c[1]) * 111_320.0 * math.cos(math.radians(lat))
+                if dx * dx + dy * dy <= within_m * within_m:
+                    c[2].append((lat, lon, line))
+                    break
+            else:
+                clusters.append([lat, lon, [(lat, lon, line)]])
+        for _, _, members in clusters:
+            if len(members) == 1:
+                out.append(members[0][2])
+            else:
+                lat = sum(m[0] for m in members) / len(members)
+                lon = sum(m[1] for m in members) / len(members)
+                out.append('\t'.join([key, 'O', name, area, f'{lat:.5f}', f'{lon:.5f}']))
+    return out
+
+
+def one_point_per_postcode(lines):
+    """Postcode (type P) lines collapse to one per postcode.
+
+    Some regions add one point per address (no area, 5 decimals): up to hundreds per postcode, 1.7M
+    extra lines UK-wide. The app uses one point per postcode, so keep the named centroid line when
+    there is one, otherwise the mean of the address points. Address labels (type O) collapse only
+    within 200 m (one_point_per_address). Other line types are untouched.
+    """
+    out, groups, others = [], {}, {}
+    for line in lines:
+        key, kind, rest = line.split('\t', 2)
+        if kind == 'P':
+            groups.setdefault(key, []).append(line)
+        elif kind == 'O':
+            f = line.split('\t')
+            others.setdefault((f[0], f[2], f[3]), []).append((float(f[4]), float(f[5]), line))
+        else:
+            out.append(line)
+    out.extend(one_point_per_address(others))
+    for key, group in groups.items():
+        if len(group) == 1:
+            out.append(group[0])
+            continue
+        named = sorted(g for g in group if g.split('\t')[3])
+        if named:
+            out.append(named[0])
+            continue
+        fields = [g.split('\t') for g in sorted(group)]
+        lat = sum(float(f[4]) for f in fields) / len(fields)
+        lon = sum(float(f[5]) for f in fields) / len(fields)
+        out.append('\t'.join([key, 'P', fields[0][2], '', f'{lat:.5f}', f'{lon:.5f}']))
+    return out
 
 
 def merge(name, documents):
