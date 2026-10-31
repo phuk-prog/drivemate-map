@@ -183,6 +183,18 @@ class WorldMapPublisherTests(unittest.TestCase):
                 worldmap.validate_pointer(broken)
         self.assertEqual(doc, worldmap.validate_pointer(doc))
 
+    def test_worldtiles_pointer_rejects_nonobject_map_metadata(self):
+        """Malformed mutable release JSON must fail closed with ValueError."""
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        for invalid in (None, "world-overview.pmtiles", ["map"], 42, True):
+            broken = copy.deepcopy(doc)
+            broken["map"] = invalid
+            with self.subTest(map_value=invalid):
+                with self.assertRaisesRegex(ValueError, "Invalid world PMTiles release identity"):
+                    worldmap.validate_pointer(broken)
+        self.assertEqual(doc, worldmap.validate_pointer(doc))
+
     def test_source_and_world_release_types_cannot_claim_routing(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
