@@ -123,6 +123,15 @@ class WorldMapPublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Asset verification failed"):
             worldmap.read_pointer(self.github, self.folder / "missing-immutable")
 
+    def test_world_tiles_pointer_rejects_missing_immutable_source_asset(self):
+        """A verified world PMTiles pointer must not outlive its pinned source assets."""
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        source = doc["source_assets"]["world-places.geojson"]
+        del self.github.files[source["tag"]]["world-places.geojson"]
+        with self.assertRaisesRegex(ValueError, "Immutable release inventory differs"):
+            worldmap.read_pointer(self.github, self.folder / "missing-world-source")
+
     def test_world_tiles_pointer_rejects_mixed_source_release_generations(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
