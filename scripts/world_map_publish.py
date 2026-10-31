@@ -88,7 +88,17 @@ def read_pointer(github, folder):
         return None
     filename = github.download(TAG, POINTER, Path(folder))
     publisher.verify_inventory(inventory, {POINTER: publisher.metadata(filename, TAG)}, TAG)
-    return validate_pointer(json.loads(filename.read_text()))
+    doc = validate_pointer(json.loads(filename.read_text()))
+    # A valid mutable pointer is not enough: its immutable PMTiles asset may
+    # have been deleted or replaced. Check GitHub's SHA-256/size inventory
+    # before treating the existing generation as a reusable last-good map.
+    immutable = doc["map"]
+    publisher.verify_inventory(
+        github.inventory(immutable["tag"]),
+        {NAME: {key: immutable[key] for key in ("tag", "bytes", "sha256")}},
+        immutable["tag"],
+    )
+    return doc
 
 
 def is_due(source, current, pipeline):
