@@ -94,3 +94,58 @@ class UkJoinTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class UkSearchJoinTests(unittest.TestCase):
+    """C08: one UK offline-search list, so a postcode outside the phone's region is found."""
+
+    H = '#drivemate-search-offline\t1\t{}\t{}'
+
+    def write_region(self, folder, date, credit, rows):
+        path = Path(folder) / uk_join.SEARCH
+        with gzip.open(path, 'wt', encoding='utf-8', newline='\n') as f:
+            f.write(self.H.format(date, credit) + '\n')
+            for row in sorted(rows):
+                f.write(row + '\n')
+        return path
+
+    def test_search_list_is_joined_uk_wide(self):
+        self.assertTrue(uk_join.joinable(uk_join.SEARCH))
+
+    def test_regions_combine_into_one_sorted_deduplicated_list(self):
+        stockport = ['sk43ab\tP\t\tStockport\t53.4100\t-2.1600']
+        staffs = ['st48jg\tP\t\tStoke-on-Trent\t52.9645\t-2.1978', 'trentham\tL\tTrentham\tStoke-on-Trent\t52.9670\t-2.2000']
+        cheshire = ['st48jg\tP\t\tStoke-on-Trent\t52.9645\t-2.1978', 'sk43ab\tP\t\tStockport\t53.4100\t-2.1600']
+        with tempfile.TemporaryDirectory() as tmp:
+            docs = []
+            for i, (date, credit, rows) in enumerate([
+                    ('2026-10-30', 'Contains OS data', stockport),
+                    ('2026-10-31', 'Contains OS data; Contains OSNI data', staffs),
+                    ('2026-10-29', 'Contains OS data', cheshire)]):
+                (Path(tmp) / str(i)).mkdir()
+                docs.append(uk_join.read(self.write_region(Path(tmp) / str(i), date, credit, rows)))
+            header, rows = uk_join.merge(uk_join.SEARCH, docs)
+            self.assertEqual('#drivemate-search-offline\t1\t2026-10-31\tContains OS data; Contains OSNI data', header)
+            self.assertEqual(sorted(set(stockport + staffs + cheshire)), rows)
+            self.assertEqual(1, sum(r.startswith('st48jg\t') for r in rows), 'overlapping regions keep one copy')
+            out = Path(tmp) / 'out' / uk_join.SEARCH
+            out.parent.mkdir()
+            uk_join.write(out, (header, rows))
+            first = out.read_bytes()
+            self.assertEqual((header, rows), uk_join.read(out), 'the joined list loads as the app reads it')
+            uk_join.write(out, (header, rows))
+            self.assertEqual(first, out.read_bytes(), 'same content gives the same bytes')
+
+    def test_unsorted_or_malformed_lists_are_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / uk_join.SEARCH
+            with gzip.open(path, 'wt', encoding='utf-8') as f:
+                f.write(self.H.format('2026-10-31', 'Contains OS data') + '\nzz\tP\t\tA\t1\t1\naa\tP\t\tB\t1\t1\n')
+            with self.assertRaisesRegex(ValueError, 'not sorted'):
+                uk_join.read(path)
+            with gzip.open(path, 'wt', encoding='utf-8') as f:
+                f.write('not a header\naa\tP\t\tB\t1\t1\n')
+            with self.assertRaisesRegex(ValueError, 'Invalid'):
+                uk_join.read(path)
+            with self.assertRaisesRegex(ValueError, 'header'):
+                uk_join.merge(uk_join.SEARCH, [('#other\t1\t2026-10-31\tx', [])])

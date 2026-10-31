@@ -30,7 +30,9 @@ POINTER_TAG = 'map-data-ukjoin'
 POINTER = 'uk.json'
 RUN_TAG = re.compile(r'map-data-ukjoin-r[0-9]{1,20}-a[0-9]{1,6}(-part[0-9]{3})?')
 SQUARE = re.compile(r'(lanes|limits|roadinfo|road-details|places)--?[0-9]{1,4}_-?[0-9]{1,4}\.json(\.gz)?')
-UK_WIDE = ('cameras-uk.json', 'charge-zones-uk.json')
+SEARCH = 'search-offline-uk.tsv.gz'
+UK_WIDE = ('cameras-uk.json', 'charge-zones-uk.json', SEARCH)
+SEARCH_HEADER = '#drivemate-search-offline'
 KEEP_JOINS = 3
 # How many UK roads carry each extra driving tag (the app keeps the same ones: RoadDetails.kt),
 # so the owner can see which information OpenStreetMap maps well before a category relies on it.
@@ -71,10 +73,34 @@ def _unique(items, key):
     return out
 
 
+def merge_search(documents):
+    """All regions' offline-search lines as one UK list (C08).
+
+    Each region publishes only its own area's postcodes and names, so a phone searching from
+    Stockport could not find ST4 8JG. The union keeps every distinct line, sorted in the same
+    plain order the app binary-searches; one header carries the newest date and every credit.
+    """
+    lines, dates, credits = set(), [], []
+    for doc in documents:
+        header, rows = doc
+        parts = header.split('\t')
+        if len(parts) < 4 or parts[0] != SEARCH_HEADER or parts[1] != '1':
+            raise ValueError('Unexpected offline search header')
+        dates.append(parts[2])
+        for credit in '\t'.join(parts[3:]).split('; '):
+            if credit and credit not in credits:
+                credits.append(credit)
+        lines.update(rows)
+    header = '\t'.join([SEARCH_HEADER, '1', max(dates), '; '.join(credits)])
+    return header, sorted(lines)
+
+
 def merge(name, documents):
     """One square from all its regional copies, newest region first; the first copy of a road wins."""
     if not documents:
         raise ValueError('Nothing to merge: ' + name)
+    if name == SEARCH:
+        return merge_search(documents)
     if name.startswith('places-'):
         rows = [row for doc in documents for row in doc]
         return _unique(rows, lambda r: json.dumps(r, sort_keys=True, ensure_ascii=False))
@@ -117,11 +143,26 @@ def coverage(files):
 
 
 def read(path):
+    if Path(path).name == SEARCH:
+        with gzip.open(path, 'rt', encoding='utf-8', newline='\n') as f:
+            header, *rows = f.read().split('\n')
+        rows = [r for r in rows if r]
+        if not header.startswith(SEARCH_HEADER + '\t') or any(r.startswith('#') or r.count('\t') != 5 for r in rows):
+            raise ValueError('Invalid offline search list')
+        if rows != sorted(rows):
+            raise ValueError('Offline search list is not sorted for binary search')
+        return header, rows
     with (gzip.open(path, 'rt', encoding='utf-8') if path.name.endswith('.gz') else path.open(encoding='utf-8')) as f:
         return json.load(f)
 
 
 def write(path, document):
+    if path.name == SEARCH:
+        header, rows = document
+        text = ('\n'.join([header, *rows]) + '\n').encode('utf-8')
+        with path.open('wb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', filename='', mtime=0, compresslevel=9) as out:
+            out.write(text)
+        return
     text = json.dumps(document, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
     if path.name.endswith('.gz'):
         # No file name or clock time in the gzip header, so equal content gives equal bytes.
