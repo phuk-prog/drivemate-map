@@ -28,6 +28,18 @@ class WorkflowSchedulingContract(unittest.TestCase):
         self.assertTrue(event['workflow_dispatch']['inputs']['validate_only']['default'])
         self.assertFalse(doc['concurrency']['cancel-in-progress'])
 
+    def test_lightweight_source_preflight_checks_combined_test_branch_push(self):
+        """Merged TEST SHA needs a cheap combined-head check, not another world build."""
+        source, workflow = events('source-checks.yml')
+        self.assertEqual(
+            {'main', 'test/continuous-drive-20261030'},
+            set(source['push']['branches']),
+        )
+        steps = workflow['jobs']['source']['steps']
+        self.assertTrue(any('scripts/unified_preflight.py' in str(step.get('run', ''))
+                            for step in steps))
+        self.assertNotIn('schedule', source)
+
     def test_hourly_watchdog_and_pr_checks_remain(self):
         event, _ = events('map-watchdog.yml')
         self.assertEqual({'40 * * * *'}, {x['cron'] for x in event['schedule']})
