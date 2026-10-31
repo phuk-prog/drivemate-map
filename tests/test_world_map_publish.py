@@ -113,6 +113,15 @@ class WorldMapPublisherTests(unittest.TestCase):
                              "map-data-worldtiles-r2-a1", self.folder)
         self.assertNotIn("map-data-worldtiles-r2-a1", self.github.files)
 
+    def test_world_tiles_pointer_rejects_mixed_source_release_generations(self):
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        mixed = copy.deepcopy(doc)
+        mixed["source_assets"]["world-places.geojson"]["tag"] = "map-data-world-overview-r2-a1"
+        with self.assertRaisesRegex(ValueError, "one immutable release"):
+            worldmap.validate_pointer(mixed)
+        self.assertEqual(doc, worldmap.validate_pointer(doc))
+
     def test_source_and_world_release_types_cannot_claim_routing(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
