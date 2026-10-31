@@ -43,6 +43,9 @@ jobs:
       - name: Install bounded geometry verifier
         if: steps.clock.outputs.due == 'true'
         run: python3 -m pip install -q shapely==2.2.0
+      - name: Run deterministic world-source pointer contract tests
+        if: steps.clock.outputs.due == 'true'
+        run: python3 -m unittest discover -s tests -p 'test_world_sources.py' -v
       - name: Verify worldwide small-scale source geometry, and publish changed snapshots only
         if: steps.clock.outputs.due == 'true'
         env:
