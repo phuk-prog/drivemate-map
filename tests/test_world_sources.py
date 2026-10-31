@@ -172,6 +172,17 @@ class WorldSourceTests(unittest.TestCase):
                 world.require_pointer(corrupted)
         self.assertEqual(doc, world.require_pointer(doc))
 
+    def test_source_pointer_schema_requires_exact_integer(self):
+        """Python True == 1 and 1.0 == 1 must not validate a world source receipt."""
+        doc, _ = world.publish(self.github, self.out, self.stats,
+                               "map-data-world-overview-r1-a1")
+        for invalid in (True, 1.0, "1", None):
+            broken = dict(doc)
+            broken["schema"] = invalid
+            with self.assertRaisesRegex(ValueError, "World source manifest"):
+                world.require_pointer(broken)
+        self.assertEqual(doc, world.require_pointer(doc))
+
     def test_no_source_package_may_claim_full_world_rendering_or_routing(self):
         doc, _ = world.publish(self.github, self.out, self.stats, "map-data-world-overview-r1-a1")
         for key in ("rendered_world_pmtiles", "worldwide_road_routing"):
