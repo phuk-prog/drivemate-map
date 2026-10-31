@@ -172,6 +172,17 @@ class WorldMapPublisherTests(unittest.TestCase):
         self.assertNotIn(worldmap.TAG, self.github.files,
                          "A failed sample-identity gate must not upload world tiles or pointer")
 
+    def test_worldtiles_schema_requires_exact_integer_not_bool_or_float(self):
+        """A boolean/float JSON schema must not certify an immutable world pointer."""
+        doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                  "map-data-worldtiles-r1-a1", self.folder)
+        for invalid in (True, 1.0, "1", None):
+            broken = copy.deepcopy(doc)
+            broken["schema"] = invalid
+            with self.assertRaisesRegex(ValueError, "world map release claim"):
+                worldmap.validate_pointer(broken)
+        self.assertEqual(doc, worldmap.validate_pointer(doc))
+
     def test_source_and_world_release_types_cannot_claim_routing(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)

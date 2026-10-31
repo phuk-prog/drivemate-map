@@ -47,7 +47,7 @@ def source_identity(source):
 
 
 def validate_pointer(doc):
-    if (not isinstance(doc, dict) or doc.get("schema") != 1 or
+    if (not isinstance(doc, dict) or type(doc.get("schema")) is not int or doc["schema"] != 1 or
             doc.get("kind") != "low-zoom-world-overview-geometry-only" or
             doc.get("worldwide_routing") is not False or
             doc.get("android_app_map_selected") is not False):
