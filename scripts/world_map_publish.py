@@ -62,6 +62,8 @@ def validate_pointer(doc):
         raise ValueError("Invalid world generation pipeline fingerprint")
     if doc.get("attribution") != "Natural Earth public domain":
         raise ValueError("Untrusted world source attribution")
+    if type(doc.get("tested_sample_count")) is not int or doc["tested_sample_count"] != 6:
+        raise ValueError("Missing six-continent world tile sample proof")
     inputs = doc.get("source_assets")
     if not isinstance(inputs, dict) or set(inputs) != set(world_sources.SOURCES):
         raise ValueError("Missing world source assets")
