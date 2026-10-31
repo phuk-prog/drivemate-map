@@ -52,7 +52,11 @@ def validate_pointer(doc):
             doc.get("worldwide_routing") is not False or
             doc.get("android_app_map_selected") is not False):
         raise ValueError("Invalid world map release claim")
-    m = doc.get("map") or {}
+    m = doc.get("map")
+    # The rolling JSON is untrusted; a non-object map must fail as a
+    # validation error, not raise AttributeError before a safe fallback.
+    if not isinstance(m, dict):
+        raise ValueError("Invalid world PMTiles release identity")
     if (not RUN_TAG.fullmatch(str(m.get("tag", ""))) or
             m.get("name") != NAME or m.get("layout") != "world-natural-earth-v1" or
             type(m.get("bytes")) is not int or not 4096 <= m["bytes"] <= world_tiles.MAX_TILES_BYTES or
