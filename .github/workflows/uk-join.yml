@@ -27,6 +27,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   join:
+    # Do not build from failed upstream regional publication; watchdog retries the region.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
