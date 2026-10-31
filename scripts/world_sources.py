@@ -104,7 +104,7 @@ def download_sources(directory, opener=urlopen):
 
 def require_pointer(doc):
     """Reader contract prevents interpreting the source snapshot as a road map."""
-    if (not isinstance(doc, dict) or doc.get("schema") != 1 or
+    if (not isinstance(doc, dict) or type(doc.get("schema")) is not int or doc["schema"] != 1 or
             doc.get("kind") != "natural-earth-world-overview-source-snapshot" or
             doc.get("rendered_world_pmtiles") is not False or
             doc.get("worldwide_road_routing") is not False):
