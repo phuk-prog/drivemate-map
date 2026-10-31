@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq >/dev/null
           sudo apt-get install -y -qq osmium-tool >/dev/null
-          python3 -m pip install shapely==2.2.0 pyproj==3.8.0 PyYAML==6.0.3 pmtiles==3.4.1 mapbox-vector-tile==2.2.0
+          python3 -m pip install shapely==2.2.0 pyproj==3.8.0 PyYAML==6.0.3 pmtiles==3.4.1 mapbox-vector-tile==2.2.0 osmium==4.3.1
           mkdir -p work/meta work/old work/snapshot work/sources
           curl -fsSL --retry 3 -o work/planetiler.jar "https://github.com/onthegomap/planetiler/releases/download/v${PLANETILER_VERSION}/planetiler.jar"
           printf '%s  %s\n' "$PLANETILER_SHA256" work/planetiler.jar | sha256sum --check --strict

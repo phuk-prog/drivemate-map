@@ -22,6 +22,7 @@ from urllib.request import urlopen
 
 import daily_schedule
 import daily_source_probe
+import ni_boundary
 import osm_changes
 import publish_map_data as publisher
 
@@ -467,8 +468,14 @@ def cmd_build(args, github):
         applied_slot = 'unavailable'
         print(f'::warning::OpenStreetMap hourly changes unavailable; using the Geofabrik extract as published: {exc}', flush=True)
     clipped = root / 'regional-source.osm.pbf'
-    run('osmium', 'extract', '-b', ','.join(map(str, region['bounds'])), '-s', 'complete_ways',
-        source, '-o', clipped, '--overwrite')
+    if region['id'] == 'northern-ireland-area':
+        # Cut at the real Northern Ireland boundary, not the old border-land rectangle.
+        # Fails closed if the boundary is missing, duplicated or outside the envelope.
+        boundary = ni_boundary.write_poly(ni_boundary.boundary_geometry(source), root / 'northern-ireland.poly')
+        run('osmium', 'extract', '-p', boundary, '-s', 'complete_ways', source, '-o', clipped, '--overwrite')
+    else:
+        run('osmium', 'extract', '-b', ','.join(map(str, region['bounds'])), '-s', 'complete_ways',
+            source, '-o', clipped, '--overwrite')
     source.unlink()
     canonical = root / 'source.opl'
     run('osmium', 'cat', clipped, '-f', 'opl,add_metadata=false', '-o', canonical, '--overwrite')
