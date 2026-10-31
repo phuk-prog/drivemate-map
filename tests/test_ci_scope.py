@@ -1,5 +1,15 @@
+import importlib.util
+from pathlib import Path
 import unittest
-from scripts.ci_scope import documentation_only
+
+# The canonical preflight discovers tests with tests/ on sys.path, not repo root.
+# Import by path so both broad discovery and explicit unittest invocation work.
+spec = importlib.util.spec_from_file_location(
+    "map_ci_scope", Path(__file__).resolve().parents[1] / "scripts" / "ci_scope.py"
+)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+documentation_only = module.documentation_only
 
 
 class CiScopeTests(unittest.TestCase):
