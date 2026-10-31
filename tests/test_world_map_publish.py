@@ -145,6 +145,16 @@ class WorldMapPublisherTests(unittest.TestCase):
         self.assertEqual(6, doc["tested_sample_count"])
         self.assertEqual(doc, worldmap.validate_pointer(doc))
 
+    def test_six_world_samples_must_be_the_six_required_continents(self):
+        """A six-entry receipt from the wrong places cannot authorize a world release."""
+        unrelated = {f"unrelated-{i}": {"land_features": 1} for i in range(6)}
+        with patch.object(worldmap.world_tiles, "verify", return_value={"samples": unrelated}):
+            with self.assertRaisesRegex(ValueError, "continental sample identities"):
+                worldmap.publish(self.github, self.archive, self.source, self.sha,
+                                 "map-data-worldtiles-r1-a1", self.folder)
+        self.assertNotIn(worldmap.TAG, self.github.files,
+                         "A failed sample-identity gate must not upload world tiles or pointer")
+
     def test_source_and_world_release_types_cannot_claim_routing(self):
         doc, _ = worldmap.publish(self.github, self.archive, self.source, self.sha,
                                   "map-data-worldtiles-r1-a1", self.folder)
