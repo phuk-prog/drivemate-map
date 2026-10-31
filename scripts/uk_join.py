@@ -62,6 +62,18 @@ def sources_key(copies):
     return hashlib.sha256(json.dumps(digests).encode()).hexdigest()
 
 
+# Bump when merge_search output changes for the same regional inputs, so the join rebuilds it.
+SEARCH_JOIN_VERSION = 'search-v2-one-point-per-postcode-and-nearby-address'
+
+
+def join_key(name, copies):
+    """Reuse key: the regional sources, plus the merge version for the search list."""
+    key = sources_key(copies)
+    if name == SEARCH:
+        key = hashlib.sha256(f'{SEARCH_JOIN_VERSION}:{key}'.encode()).hexdigest()
+    return key
+
+
 def _unique(items, key):
     seen, out = set(), []
     for item in items:
@@ -290,7 +302,7 @@ def build(github, wanted, previous_files, work):
     built, reused = {}, {}
     todo = []
     for name, copies in wanted.items():
-        key = sources_key(copies)
+        key = join_key(name, copies)
         old = previous_files.get(name)
         if old and old.get('sources') == key and RUN_TAG.fullmatch(old.get('tag', '')):
             reused[name] = old
