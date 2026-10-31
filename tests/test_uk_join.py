@@ -184,3 +184,16 @@ class UkSearchAddressPointTests(unittest.TestCase):
         lines = {'1 high street\tO\t1 High Street\tTown\t53.0\t-2.0', '1 high street\tO\t1 High Street\tOther\t53.0\t-2.0',
                  'high street\tR\tHigh Street\tTown\t53.0\t-2.0', 'high street\tR\tHigh Street\tTown\t53.0\t-2.0001'}
         self.assertEqual(sorted(lines), sorted(uk_join.one_point_per_postcode(lines)))
+
+
+class UkSearchRebuildTests(unittest.TestCase):
+    def test_search_list_key_carries_merge_version_others_unchanged(self):
+        copies = [{'sha256': 'a' * 64}, {'sha256': 'b' * 64}]
+        self.assertEqual(uk_join.sources_key(copies), uk_join.join_key('lanes-106_-5.json', copies))
+        self.assertNotEqual(uk_join.sources_key(copies), uk_join.join_key(uk_join.SEARCH, copies))
+
+    def test_previous_search_list_built_with_old_logic_is_not_reused(self):
+        copies = [{'sha256': 'a' * 64, 'tag': 'map-data-region-x-r1-a1', 'bytes': 1, 'region': 'x'}]
+        previous = {uk_join.SEARCH: {'sources': uk_join.sources_key(copies), 'tag': 'map-data-ukjoin-r1-a1'}}
+        key = uk_join.join_key(uk_join.SEARCH, copies)
+        self.assertNotEqual(previous[uk_join.SEARCH]['sources'], key)
