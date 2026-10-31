@@ -176,10 +176,8 @@ jobs:
         env:
           REL: ${{ steps.index.outputs.rel }}
         run: |
-          gh release view "$REL" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
-            gh release create "$REL" -R "$GITHUB_REPOSITORY" --title "DMN road pieces (UK) $REL" \
-              --notes "DMN road map pieces for the DriveMate app, from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0)." --latest=false
-          ls parts/*.dmnpack | xargs -n 40 gh release upload "$REL" -R "$GITHUB_REPOSITORY" --clobber
+          # Resumes after GitHub's API rate limit instead of failing part-way (C02.3).
+          python3 scripts/dmn_upload.py --repo "$GITHUB_REPOSITORY" --release "$REL" parts/*.dmnpack
       - name: Check every piece uploaded whole
         env:
           REL: ${{ steps.index.outputs.rel }}
