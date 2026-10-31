@@ -146,7 +146,7 @@ class WorldSourceTests(unittest.TestCase):
                                "map-data-world-overview-r1-a1")
         tag = doc["assets"]["world-places.geojson"]["tag"]
         del self.github.files[tag]["world-places.geojson"]
-        with self.assertRaisesRegex(ValueError, "Asset verification failed"):
+        with self.assertRaisesRegex(ValueError, "Immutable release inventory differs"):
             world.read_pointer(self.github, self.out / "missing-source")
 
     def test_mixed_source_release_generations_fail_closed(self):
