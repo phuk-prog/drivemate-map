@@ -117,6 +117,8 @@ def require_pointer(doc):
                 type(item.get("bytes")) is not int or not 100 < item["bytes"] <= MAX_SOURCE_BYTES or
                 not re.fullmatch(r"map-data-world-overview-r[0-9]+-a[0-9]+", str(item.get("tag")))):
             raise ValueError("Invalid world overview asset identity")
+    if len({item["tag"] for item in assets.values()}) != 1:
+        raise ValueError("World sources must share one immutable release")
     return doc
 
 
