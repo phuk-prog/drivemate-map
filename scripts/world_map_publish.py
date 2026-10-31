@@ -98,6 +98,18 @@ def read_pointer(github, folder):
         {NAME: {key: immutable[key] for key in ("tag", "bytes", "sha256")}},
         immutable["tag"],
     )
+    # The worldtiles pointer also pins three Natural Earth source assets.
+    # Do not reuse a world release if its provenance bytes have disappeared,
+    # even when the rendered PMTiles asset still exists and hashes correctly.
+    sources = doc["source_assets"]
+    source_tag = next(iter(sources.values()))["tag"]  # validate_pointer enforces one tag
+    publisher.verify_inventory(
+        github.inventory(source_tag),
+        {name: {key: item[key] for key in ("tag", "bytes", "sha256")}
+         for name, item in sources.items()},
+        source_tag,
+        exact=True,
+    )
     return doc
 
 
