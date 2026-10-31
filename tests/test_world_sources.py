@@ -140,6 +140,15 @@ class WorldSourceTests(unittest.TestCase):
             world.publish(self.github, self.out, self.stats, "map-data-world-overview-r2-a1")
         self.assertNotIn("map-data-world-overview-r2-a1", self.github.files)
 
+    def test_source_pointer_cannot_reuse_missing_immutable_source(self):
+        """A rolling source receipt cannot certify an asset deleted from its immutable release."""
+        doc, _ = world.publish(self.github, self.out, self.stats,
+                               "map-data-world-overview-r1-a1")
+        tag = doc["assets"]["world-places.geojson"]["tag"]
+        del self.github.files[tag]["world-places.geojson"]
+        with self.assertRaisesRegex(ValueError, "Asset verification failed"):
+            world.read_pointer(self.github, self.out / "missing-source")
+
     def test_mixed_source_release_generations_fail_closed(self):
         doc, _ = world.publish(self.github, self.out, self.stats,
                                "map-data-world-overview-r1-a1")
