@@ -39,7 +39,10 @@ jobs:
           python-version: '3.12'
       - name: Install generator test dependencies
         if: steps.scope.outputs.run_full == 'true'
-        run: python3 -m pip install shapely==2.2.0 pyproj==3.8.0 PyYAML==6.0.3 pmtiles==3.4.1 mapbox-vector-tile==2.2.0
+        run: python3 -m pip install shapely==2.2.0 pyproj==3.8.0 PyYAML==6.0.3 pmtiles==3.4.1 mapbox-vector-tile==2.2.0 osmium==4.3.1
+      - name: Test the Northern Ireland clip boundary (category 1.1)
+        if: steps.scope.outputs.run_full == 'true'
+        run: python3 -m unittest tests.test_ni_boundary -v
       - name: Run canonical data preflight
         if: steps.scope.outputs.run_full == 'true'
         run: python3 scripts/unified_preflight.py --repo . --base-sha HEAD
