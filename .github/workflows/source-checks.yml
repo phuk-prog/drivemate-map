@@ -2,7 +2,7 @@ name: Data source and publication regressions
 
 on:
   push:
-    branches: [main]
+    branches: [main, test/continuous-drive-20261030]
   # Full inexpensive preflight for every PR, including new source/fixture locations.
   # No map downloads, map generation or publishing occurs in this workflow.
   pull_request:
