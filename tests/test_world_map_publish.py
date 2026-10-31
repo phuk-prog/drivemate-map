@@ -129,7 +129,7 @@ class WorldMapPublisherTests(unittest.TestCase):
                                   "map-data-worldtiles-r1-a1", self.folder)
         source = doc["source_assets"]["world-places.geojson"]
         del self.github.files[source["tag"]]["world-places.geojson"]
-        with self.assertRaisesRegex(ValueError, "Asset verification failed"):
+        with self.assertRaisesRegex(ValueError, "Immutable release inventory differs"):
             worldmap.read_pointer(self.github, self.folder / "missing-world-source")
 
     def test_world_tiles_pointer_rejects_mixed_source_release_generations(self):
