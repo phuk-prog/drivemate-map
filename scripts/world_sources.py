@@ -138,7 +138,17 @@ def read_pointer(github, directory):
         return None
     src = github.download(POINTER_TAG, POINTER, Path(directory))
     publisher.verify_inventory(listing, {POINTER: publisher.metadata(src, POINTER_TAG)}, POINTER_TAG)
-    return require_pointer(json.loads(src.read_text()))
+    doc = require_pointer(json.loads(src.read_text()))
+    # A rolling source receipt must not outlive the immutable GeoJSON files it
+    # names. Check all three GitHub asset digests/sizes before returning a
+    # reusable generation; never silently treat a broken pointer as current.
+    tag = next(iter(doc["assets"].values()))["tag"]
+    expected = {
+        name: {key: doc["assets"][name][key] for key in ("tag", "bytes", "sha256")}
+        for name in SOURCES
+    }
+    publisher.verify_inventory(github.inventory(tag), expected, tag, exact=True)
+    return doc
 
 
 def publish(github, directory, summaries, tag):
