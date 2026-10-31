@@ -140,6 +140,15 @@ class WorldSourceTests(unittest.TestCase):
             world.publish(self.github, self.out, self.stats, "map-data-world-overview-r2-a1")
         self.assertNotIn("map-data-world-overview-r2-a1", self.github.files)
 
+    def test_mixed_source_release_generations_fail_closed(self):
+        doc, _ = world.publish(self.github, self.out, self.stats,
+                               "map-data-world-overview-r1-a1")
+        mixed = json.loads(json.dumps(doc))
+        mixed["assets"]["world-places.geojson"]["tag"] = "map-data-world-overview-r2-a1"
+        with self.assertRaisesRegex(ValueError, "one immutable release"):
+            world.require_pointer(mixed)
+        self.assertEqual(doc, world.require_pointer(doc))
+
     def test_no_source_package_may_claim_full_world_rendering_or_routing(self):
         doc, _ = world.publish(self.github, self.out, self.stats, "map-data-world-overview-r1-a1")
         for key in ("rendered_world_pmtiles", "worldwide_road_routing"):
