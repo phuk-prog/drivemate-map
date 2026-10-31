@@ -28,6 +28,9 @@ TILE_KEY = re.compile(r"^(-?\d+)_(-?\d+)$")
 REGION_KEY = re.compile(r"^main-(-?\d+)_(-?\d+)$")  # main roads in 2-degree blocks
 BLOCK = 2
 SHA = re.compile(r"^[0-9a-f]{64}$")
+ENT_FILE = re.compile(r"^dmn-ent-(-?\d+)_(-?\d+)\.tsv\.gz$")
+ENT_COLUMNS = ["osm_node", "lat_e7", "lon_e7", "entrance", "amenity", "access"]
+MAX_ENT_BYTES = 50 * 1024 * 1024
 RELEASE = re.compile(r"^dmn-uk(-[0-9]{8}(-[0-9]+)?)?$")  # the app's own rule (DmnTiles.parse)
 MAX_BYTES = 200 * 1024 * 1024  # the app's limit for one piece (DmnTiles.MAX_BYTES)
 MAX_UNPACKED = 2 * 1024 ** 3
@@ -159,6 +162,55 @@ def check_index(doc: dict) -> list[tuple[str, dict]]:
     return out
 
 
+def entrance_entries(doc: dict) -> list[tuple[str, dict]]:
+    """P15.2 entrance files the index lists (none for an older index); Refused when malformed."""
+    ent = doc.get("entrances", {})
+    if not isinstance(ent, dict):
+        raise Refused("index entrances are not a list of files")
+    tiles = doc.get("tiles") or {}
+    for key, p in sorted(ent.items()):
+        if key not in tiles:
+            raise Refused(f"entrances {key}: no road square")
+        if not isinstance(p, dict) or str(p.get("file", "")) != f"dmn-ent-{key}.tsv.gz":
+            raise Refused(f"entrances {key}: bad file name")
+        if not SHA.match(str(p.get("sha256", ""))):
+            raise Refused(f"entrances {key}: bad SHA-256")
+        if not isinstance(p.get("bytes"), int) or not 1 <= p["bytes"] <= MAX_ENT_BYTES:
+            raise Refused(f"entrances {key}: size outside 1 byte to 50 MB")
+    return sorted(ent.items())
+
+
+def check_entrances(key: str, entry: dict, data: bytes) -> int:
+    """Number of entrance points in a file that matches its entry and its square; Refused otherwise."""
+    if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
+        raise Refused("size or SHA-256 differs from the index")
+    try:
+        lines = gzip.decompress(data).decode("utf-8").split("\n")
+    except (OSError, EOFError, UnicodeDecodeError) as exc:
+        raise Refused(f"unreadable: {exc}") from None
+    head = lines[0].split("\t")
+    if head[:2] != ["#drivemate-entrances", "1"] or len(head) != 4 or head[3] != ATTRIBUTION:
+        raise Refused("not a version-1 entrance file with the OpenStreetMap credit")
+    if lines[1].split("\t") != ENT_COLUMNS or lines[-1] != "":
+        raise Refused("bad columns or a cut-off file")
+    row, col = map(int, TILE_KEY.match(key).groups())
+    last = None
+    for line in lines[2:-1]:
+        f = line.split("\t")
+        try:
+            node, la, lo = int(f[0]), int(f[1]) / 1e7, int(f[2]) / 1e7
+        except (ValueError, IndexError):
+            raise Refused("bad entrance row") from None
+        if len(f) != 6 or not (row <= la * 4 < row + 1 and col <= lo * 4 < col + 1):
+            raise Refused(f"entrance {f[0]} outside square {key}")
+        if not f[3] and f[4] != "parking_entrance" or f[4] not in ("", "parking_entrance"):
+            raise Refused(f"entrance {node} carries no entrance tag")
+        if last is not None and node <= last:
+            raise Refused("entrance rows not in node order")
+        last = node
+    return len(lines) - 3
+
+
 def check_piece(key: str, entry: dict, data: bytes) -> dict:
     """Metadata of a piece that matches its index entry and reads completely; Refused otherwise."""
     if len(data) != entry["bytes"]:
@@ -195,12 +247,21 @@ def check_dir(folder: Path) -> dict:
             edges += meta["edges"]
         except Refused as exc:
             bad[entry["file"]] = str(exc)
+    points = 0
+    for key, entry in entrance_entries(doc):
+        f = folder / entry["file"]
+        try:
+            if not f.exists():
+                raise Refused("missing")
+            points += check_entrances(key, entry, f.read_bytes())
+        except Refused as exc:
+            bad[entry["file"]] = str(exc)
     # Keep actual inventory separate from aggregate counts: a disappearing
     # UK square can otherwise be masked by new main-road block files.
     tile_entries = doc["tiles"]
     national_entries = list(tile_entries.values()) + [doc["main"]]
     return {"built": doc.get("built"), "source": doc.get("source"), "pieces": len(entries),
-            "refused": bad, "bytes": total, "edges": edges,
+            "refused": bad, "bytes": total, "edges": edges, "entrance_points": points,
             "tile_keys": sorted(tile_entries),
             "main_block_keys": sorted(doc.get("regions", {})),
             "national_bytes": sum(p["bytes"] for p in national_entries)}
@@ -254,7 +315,7 @@ def uploaded(doc: dict, assets: list[dict]) -> list[str]:
     """Pieces the index lists that are not in the release at their full size."""
     have = {a["name"]: a["size"] for a in assets}
     return [f"{p['file']}: {'missing' if p['file'] not in have else 'size ' + str(have[p['file']])}"
-            for _, p in check_index(doc) if have.get(p["file"]) != p["bytes"]]
+            for _, p in check_index(doc) + entrance_entries(doc) if have.get(p["file"]) != p["bytes"]]
 
 
 def main() -> int:
