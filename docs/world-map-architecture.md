@@ -119,6 +119,6 @@ W05: real-device acceptance, full navigation regression, exact source SHA
 test receipt, compatibility, app performance and signing. Only then claim
 global availability for the actually published regions.
 
-Current truth: C01 — World map and downloads is NOT complete. The proven
+Current truth: **Category 1 — World map and downloads: Part done.** The UK map subcategories are complete; worldwide subcategories are not. The proven
 automated map/testing work so far applies to the UK; worldwide sources,
 global basemap, globe rendering and worldwide offline coverage remain PENDING.
