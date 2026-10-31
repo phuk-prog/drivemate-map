@@ -68,6 +68,8 @@ def validate_pointer(doc):
                 not re.fullmatch(r"[a-f0-9]{64}", str(v.get("sha256"))) or
                 not re.fullmatch(r"map-data-world-overview-r[0-9]+-a[0-9]+", str(v.get("tag")))):
             raise ValueError("Untrusted world source identity")
+    if len({v["tag"] for v in inputs.values()}) != 1:
+        raise ValueError("World sources must share one immutable release")
     return doc
 
 
