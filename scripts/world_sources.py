@@ -109,6 +109,11 @@ def require_pointer(doc):
             doc.get("rendered_world_pmtiles") is not False or
             doc.get("worldwide_road_routing") is not False):
         raise ValueError("World source manifest is invalid or overclaims readiness")
+    # A well-formed hash inventory must not launder an unrelated or proprietary
+    # source into the Natural Earth public-domain worldwide overview contract.
+    if (doc.get("source") != "Natural Earth (public domain)" or
+            doc.get("source_index") != "https://www.naturalearthdata.com/downloads/"):
+        raise ValueError("Invalid Natural Earth source provenance")
     assets = doc.get("assets")
     if not isinstance(assets, dict) or set(assets) != set(SOURCES):
         raise ValueError("Incomplete world overview assets")

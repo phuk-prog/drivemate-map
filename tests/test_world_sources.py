@@ -149,6 +149,20 @@ class WorldSourceTests(unittest.TestCase):
             world.require_pointer(mixed)
         self.assertEqual(doc, world.require_pointer(doc))
 
+    def test_source_pointer_requires_public_domain_provenance(self):
+        """A valid-looking release must not silently claim another source or licence."""
+        doc, _ = world.publish(self.github, self.out, self.stats,
+                               "map-data-world-overview-r1-a1")
+        for key, false_value in (
+            ("source", "Proprietary world dataset"),
+            ("source_index", "https://example.invalid/private-source"),
+        ):
+            corrupted = dict(doc)
+            corrupted[key] = false_value
+            with self.assertRaisesRegex(ValueError, "Natural Earth source provenance"):
+                world.require_pointer(corrupted)
+        self.assertEqual(doc, world.require_pointer(doc))
+
     def test_no_source_package_may_claim_full_world_rendering_or_routing(self):
         doc, _ = world.publish(self.github, self.out, self.stats, "map-data-world-overview-r1-a1")
         for key in ("rendered_world_pmtiles", "worldwide_road_routing"):
