@@ -33,6 +33,8 @@ SQUARE = re.compile(r'(lanes|limits|roadinfo|road-details|places)--?[0-9]{1,4}_-
 SEARCH = 'search-offline-uk.tsv.gz'
 UK_WIDE = ('cameras-uk.json', 'charge-zones-uk.json', SEARCH)
 SEARCH_HEADER = '#drivemate-search-offline'
+# National postcode lines (scripts/postcodes_uk.py output), joined into the search list when set.
+NATIONAL_POSTCODES = None
 KEEP_JOINS = 3
 # How many UK roads carry each extra driving tag (the app keeps the same ones: RoadDetails.kt),
 # so the owner can see which information OpenStreetMap maps well before a category relies on it.
@@ -63,13 +65,16 @@ def sources_key(copies):
 
 
 # Bump when merge_search output changes for the same regional inputs, so the join rebuilds it.
-SEARCH_JOIN_VERSION = 'search-v2-one-point-per-postcode-and-nearby-address'
+SEARCH_JOIN_VERSION = 'search-v3-national-postcodes'
 
 
 def join_key(name, copies):
     """Reuse key: the regional sources, plus the merge version for the search list."""
     key = sources_key(copies)
     if name == SEARCH:
+        if NATIONAL_POSTCODES:
+            digest = hashlib.sha256(Path(NATIONAL_POSTCODES).read_bytes()).hexdigest()
+            key = f'{key}:postcodes:{digest}'
         key = hashlib.sha256(f'{SEARCH_JOIN_VERSION}:{key}'.encode()).hexdigest()
     return key
 
@@ -321,6 +326,8 @@ def build(github, wanted, previous_files, work):
             if path.stat().st_size != copy['bytes'] or publisher.digest(path) != copy['sha256']:
                 raise ValueError(f'Regional file integrity failed: {copy["region"]}/{name}')
             documents.append(read(path))
+        if name == SEARCH and NATIONAL_POSTCODES:
+            documents.append(read(Path(NATIONAL_POSTCODES)))
         out = work / 'out' / name
         merged = merge(name, documents)
         write(out, merged)
@@ -401,7 +408,10 @@ def main():
     parser.add_argument('--repo', required=True)
     parser.add_argument('--work', type=Path, default=Path('work/uk-join'))
     parser.add_argument('--force', action='store_true', help='Join even when no region changed')
+    parser.add_argument('--postcodes', type=Path, default=None, help='National postcode lines to add to the search list')
     args = parser.parse_args()
+    global NATIONAL_POSTCODES
+    NATIONAL_POSTCODES = args.postcodes
     args.work.mkdir(parents=True, exist_ok=True)
     github = publisher.GitHub(args.repo)
     catalog = regions.load_catalog(github, args.work / 'catalog')
