@@ -76,6 +76,14 @@ jobs:
           # No --roads and no signs cache: Mapillary is never used here.
           python3 scripts/limits.py work/maxspeed.geojsonseq out/limits work/motorways.geojsonseq out/limit-checks.md
 
+      - name: Tunnel ways (category 7 tunnel reacquisition input)
+        run: |
+          set -euo pipefail
+          osmium tags-filter work/base.osm.pbf w/tunnel=yes w/tunnel=building_passage \
+            -o work/tunnels.osm.pbf --overwrite
+          osmium export work/tunnels.osm.pbf -f geojsonseq -o out/tunnels-gm.geojsonseq --overwrite --geometry-types=linestring -u type_id
+          echo "- Tunnel ways exported: $(wc -l < out/tunnels-gm.geojsonseq)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check checkpoints
         run: |
           python3 scripts/limit_acceptance.py --limits-dir out/limits --cameras out/cameras-uk.json \
@@ -95,3 +103,4 @@ jobs:
             work/source-retrieved.txt
             work/source-info.json
             out/limit-checks.md
+            out/tunnels-gm.geojsonseq
