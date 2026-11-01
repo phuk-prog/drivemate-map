@@ -95,6 +95,20 @@ class OsmAddressTests(unittest.TestCase):
         self.assertEqual(prov['input_records_before_merge']['osm_addresses'], 2)
         self.assertEqual(prov['total_records'], sum(prov['records_by_primary_source'].values()))
 
+    def test_flats_become_flat_records_and_ranges_are_skipped(self):
+        addr = self.write('f.geojsonseq',
+            _feature([-2.194193, 53.395466], **{'addr:housenumber': '12', 'addr:street': 'Menai Grove',
+                                                'addr:city': 'Cheadle', 'addr:postcode': 'SK8 2EZ',
+                                                'addr:flats': '1;2;3-4'}),
+            _feature([-2.194100, 53.395400], **{'addr:housenumber': '12', 'addr:street': 'Menai Grove',
+                                                'addr:unit': '5'}))
+        stats, records, prov = _run(self.root, '--osm-addresses', addr)
+        names = sorted(r[0] for r in records)
+        self.assertEqual(['12 Menai Grove', 'Flat 1, 12 Menai Grove', 'Flat 2, 12 Menai Grove',
+                          'Flat 5, 12 Menai Grove'], [n for n in names if n == '12 Menai Grove' or n.startswith('Flat')])
+        self.assertFalse(any('3-4' in n for n in names))
+        self.assertTrue(all(len(r) == 5 for r in records))
+
     def test_duplicates_within_30m_merge_but_other_streets_and_far_copies_stay(self):
         tags = {'addr:housenumber': '12', 'addr:street': 'Menai Grove'}
         addr = self.write('a.geojsonseq',

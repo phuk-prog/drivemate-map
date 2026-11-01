@@ -169,6 +169,11 @@ if args.osm_addresses and os.path.exists(args.osm_addresses):
                           if clean(p.get(k))), "")
             addr = ", ".join(x for x in (place, clean(p.get("addr:postcode"))) if x)
             add("osm_addresses", f"{number} {street}", "address", addr, lat, lon)
+            # Flats: addr:unit on a unit, or addr:flats as a list of single flat numbers on a building.
+            # Ranges such as "1-4" are skipped rather than guessed.
+            flats = [clean(p.get("addr:unit"))] + [v.strip() for v in re.split(r"[;,]", clean(p.get("addr:flats")))]
+            for flat in list(dict.fromkeys(f for f in flats if f and "-" not in f))[:50]:
+                add("osm_addresses", f"Flat {flat}, {number} {street}", "address", addr, lat, lon)
 
 # ---------- Ordnance Survey Open Names (streets and places) ----------
 if args.osnames and os.path.isdir(args.osnames):
