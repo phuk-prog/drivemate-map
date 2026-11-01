@@ -39,8 +39,17 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check the join
-        run: python3 -m unittest tests.test_uk_join
+        run: python3 -m unittest tests.test_uk_join tests.test_uk_join_postcodes tests.test_postcodes_uk
+      - name: Fetch the open postcode file (pinned digest)
+        env:
+          POSTCODE_DATE: '2026-10-31'
+        run: |
+          set -euo pipefail
+          mkdir -p work/postcodes
+          curl -fsSL --retry 3 -o work/postcodes/open_postcode_geo.csv.zip https://download.getthedata.com/downloads/open_postcode_geo.csv.zip
+          printf '%s  %s\n' '8f5917a9a7ef36f93ac54e48a5c47c5cabbe1934c0c348a4d76fe042270bdec9' work/postcodes/open_postcode_geo.csv.zip | sha256sum --check --strict
+          python3 scripts/postcodes_uk.py work/postcodes/open_postcode_geo.csv.zip work/postcodes/postcodes-uk.tsv.gz --date "$POSTCODE_DATE"
       - name: Join every region into one UK set
         env:
           FORCE: ${{ inputs.force && '--force' || '' }}
-        run: python3 scripts/uk_join.py --repo "$GITHUB_REPOSITORY" $FORCE
+        run: python3 scripts/uk_join.py --repo "$GITHUB_REPOSITORY" --postcodes work/postcodes/postcodes-uk.tsv.gz $FORCE
