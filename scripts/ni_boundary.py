@@ -9,11 +9,6 @@ expected envelope all raise, and no clipped region is produced.
 """
 from pathlib import Path
 
-import osmium
-from osmium.geom import WKTFactory
-from shapely import wkt
-from shapely.geometry import MultiPolygon
-
 NAME = 'Northern Ireland'
 ISO_CODE = 'GB-NIR'
 # Sanity envelope (west, south, east, north), from the OpenStreetMap boundary (relation 156393:
@@ -34,6 +29,10 @@ def boundary_geometry(osm_path):
     On failure the error lists the near misses (any relation naming Northern Ireland or
     carrying its ISO code), so a real-data failure shows its cause in the job log.
     """
+    import osmium
+    from osmium.geom import WKTFactory
+    from shapely import wkt
+
     matches = []
     near = []
     for obj in osmium.FileProcessor(str(osm_path)).with_areas().with_locations():
@@ -62,6 +61,8 @@ def boundary_geometry(osm_path):
 
 def write_poly(geom, path, name='northern-ireland'):
     """Write a Polygon or MultiPolygon in osmium .poly format; interiors become holes."""
+    from shapely.geometry import MultiPolygon
+
     polygons = list(geom.geoms) if isinstance(geom, MultiPolygon) else [geom]
     lines = [name]
     number = 0
