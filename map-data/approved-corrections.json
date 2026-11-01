@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "records": [
+    {"id": "MAP-01", "status": "draft", "approval": "approved", "kind": "lanes", "location": "Pyramid roundabout, M60 Cheadle-side slip road", "request": "Preserve the approved approach, intermediate forks and Hollywood Way exit lane sequence.", "needs": ["exact lane connections", "road binding", "source rights", "observation date"]},
+    {"id": "MAP-02", "status": "draft", "approval": "approved", "kind": "road_identity", "location": "Pyramid roundabout entrance", "request": "Check M60 slip-road identity rather than labelling the entrance Travis Brow.", "needs": ["road identity verification", "separate app label fix"]},
+    {"id": "MAP-03", "status": "draft", "approval": "approved", "kind": "lanes", "location": "M60 merge, picture 33437", "request": "Bind the joining lane and merge to the actual road geometry.", "needs": ["exact junction", "lane connections", "source rights", "observation date"]},
+    {"id": "MAP-04", "status": "draft", "approval": "approved", "kind": "lanes", "location": "M56 merge, picture 33430", "request": "Bind the joining lane and merge to the actual road geometry; no approved speed-limit replacement.", "needs": ["exact junction", "lane connections", "source rights", "observation date"]},
+    {"id": "MAP-05", "status": "draft", "approval": "approved", "kind": "lanes", "location": "M60 fork toward Stockport, picture 33439", "request": "Distinguish lane continuation from a required lane change using verified connections.", "needs": ["exact fork", "lane connections", "source rights", "observation date"]},
+    {"id": "MAP-06", "status": "draft", "approval": "approved", "kind": "lanes", "location": "Yew Street to Hollywood Way, then Brinksway", "request": "Verify approach lanes and turn connections for the approved lane sequence.", "needs": ["road binding", "lane connections", "source rights", "observation date"]},
+    {"id": "MAP-07", "status": "draft", "approval": "approved", "kind": "junction_geometry", "location": "Carrs Road and Saint Margaret's Road journey", "request": "Verify the distinct roundabout exit and following turn connection points.", "needs": ["exact approach and exits", "separate guidance review", "source rights", "observation date"]}
+  ]
+}
