@@ -33,3 +33,16 @@ class TwiceDailyTests(unittest.TestCase):
         self.assertEqual(datetime(2026, 10, 25, 14, tzinfo=utc), latest_slot(datetime(2026, 10, 25, 20, 0, tzinfo=utc)))
         self.assertEqual(datetime(2026, 10, 25, 14, tzinfo=utc), latest_slot(datetime(2026, 10, 26, 0, 59, tzinfo=utc)))
         self.assertEqual(datetime(2026, 7, 5, 13, tzinfo=utc), latest_slot(datetime(2026, 7, 5, 13, 0, tzinfo=utc)))
+
+
+class SameWindowTests(unittest.TestCase):
+    def test_runs_in_the_same_window_share_one_slot(self):
+        # Category 1.7: a second scheduled run inside the same 01:00 / 14:00 window resolves to the same slot.
+        from datetime import datetime, timezone
+        from daily_schedule import latest_slot
+        utc = timezone.utc
+        first = latest_slot(datetime(2026, 10, 25, 14, 5, tzinfo=utc))
+        second = latest_slot(datetime(2026, 10, 25, 15, 30, tzinfo=utc))
+        self.assertEqual(first, second)
+        self.assertEqual(datetime(2026, 10, 25, 14, tzinfo=utc), second)
+        self.assertNotEqual(first, latest_slot(datetime(2026, 10, 26, 1, 5, tzinfo=utc)))

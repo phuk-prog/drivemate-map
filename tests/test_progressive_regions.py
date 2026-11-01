@@ -121,6 +121,20 @@ class ProgressiveRegionTests(unittest.TestCase):
         signals[regions.GM_SOURCE] = 'c'*32
         self.assertEqual('stockport', regions.choose_next(regions.INITIAL,value,signals,'b'*64,'v2')['id'])
 
+    def test_second_run_in_the_same_slot_does_not_rebuild_a_built_region(self):
+        # Category 1.7: a region built for one 01:00 / 14:00 slot is not chosen again in that slot,
+        # so a second run in the same window does no duplicate work; the next slot picks it up.
+        region = regions.INITIAL[0]
+        value = catalog()
+        info = {'tag':'map-data-region-stockport-test', 'bytes':200, 'sha256':'a'*64}
+        value['regions']['stockport'] = {**region, 'content_sha256':'a'*64, 'pipeline_sha256':'b'*64,
+            'manifest':info, 'map':{**info, 'name':'drivemate-v1.pmtiles', 'layout':'drivemate-v1'},
+            'observed_source_md5':'c'*32, 'supplement_version':'v1', 'osm_changes_slot':'2026-10-25T14:00Z'}
+        signals = {regions.GM_SOURCE:'c'*32}
+        chosen = regions.choose_next(regions.INITIAL, value, signals, 'b'*64, 'v1', '2026-10-25T14:00Z')
+        self.assertNotEqual('stockport', chosen['id'] if chosen else None)
+        self.assertEqual('stockport', regions.choose_next(regions.INITIAL, value, signals, 'b'*64, 'v1', '2026-10-26T01:00Z')['id'])
+
     def test_region_catalog_cannot_claim_complete_uk_or_other_region_assets(self):
         value = catalog(); value['coverage']='complete'
         with self.assertRaises(ValueError): regions.validate_catalog(value)
