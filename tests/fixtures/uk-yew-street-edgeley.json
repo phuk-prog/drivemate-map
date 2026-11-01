@@ -1,0 +1,1760 @@
+{
+  "fixture": "uk-yew-street-edgeley",
+  "source": {
+    "service": "OpenStreetMap API 0.6 map call (bbox)",
+    "bbox_lon_lat": [
+      -2.166,
+      53.4,
+      -2.148,
+      53.412
+    ],
+    "raw_extract_sha256": "22649b4ce6f8d9a3ad95a7075ba396386156b225a68adea157c10859c5c2d02b",
+    "attribution": "© OpenStreetMap contributors, ODbL 1.0",
+    "method": "explicit OSM tags only; no exit counts or turn permissions inferred"
+  },
+  "coverage": {
+    "node_count_in_extract": 41281,
+    "roundabout_count": 20,
+    "ring_node_count": 100,
+    "approach_way_count": 29,
+    "named_hint_way_count": 35
+  },
+  "roundabouts": [
+    {
+      "id": 37118016,
+      "name": null,
+      "ref": null,
+      "highway": "tertiary",
+      "closed": true,
+      "node_ids": [
+        10968491265,
+        10968491266,
+        431837498,
+        10202152061,
+        10202152060,
+        431837519,
+        9067400310,
+        431837521,
+        9067400311,
+        10202152059,
+        10202152058,
+        1325677426,
+        9067400308,
+        431837511,
+        1325677431,
+        10202152062,
+        431837513,
+        431837500,
+        431837515,
+        10202152055,
+        431837516,
+        10202152057,
+        10202152056,
+        10968491265
+      ],
+      "centroid": [
+        53.4118641,
+        -2.154677
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 381856707,
+      "name": null,
+      "ref": null,
+      "highway": "primary",
+      "closed": false,
+      "node_ids": [
+        3850343900,
+        9045346448,
+        6620761324,
+        6620761325,
+        9045346417,
+        5457408243
+      ],
+      "centroid": [
+        53.4112717,
+        -2.163496
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 566765818,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        29940676,
+        7576103603,
+        9038756977,
+        2268262836,
+        7576103604,
+        29940677
+      ],
+      "centroid": [
+        53.4026407,
+        -2.1624132
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 566767627,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        2268327598,
+        9045026004,
+        9054260803,
+        33071156
+      ],
+      "centroid": [
+        53.4082886,
+        -2.1583713
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 979393304,
+      "name": null,
+      "ref": null,
+      "highway": "primary",
+      "closed": false,
+      "node_ids": [
+        5457408236,
+        3850343889,
+        5457408246,
+        3850343890,
+        5457408230,
+        3850343891,
+        3850343902
+      ],
+      "centroid": [
+        53.4114291,
+        -2.1635976
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 979559008,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        7576103610,
+        29940674,
+        2268262845,
+        9038756974,
+        10059840445,
+        10059840444,
+        10059840443,
+        274816117
+      ],
+      "centroid": [
+        53.4028414,
+        -2.1627403
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 979559024,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        29940675,
+        10059840428,
+        2268262843,
+        9038756976,
+        2268262841
+      ],
+      "centroid": [
+        53.402818,
+        -2.1624046
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 979580955,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        274816117,
+        29940675
+      ],
+      "centroid": [
+        53.4028857,
+        -2.1625188
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 979580956,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        7606829702,
+        7606829700,
+        9062246593,
+        7606829701,
+        10059840441,
+        10059840442,
+        7576103610
+      ],
+      "centroid": [
+        53.4026774,
+        -2.162799
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 982216677,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        33071131,
+        2268327603,
+        430871342,
+        9045026011,
+        2268327615
+      ],
+      "centroid": [
+        53.4079775,
+        -2.1585389
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 982216678,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        2268327604,
+        9054260799,
+        2268327600,
+        9045026010,
+        2268327610,
+        33071131
+      ],
+      "centroid": [
+        53.4079881,
+        -2.1583002
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 982216696,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        33071147,
+        2268327616,
+        9045026001,
+        9045026002,
+        2268327598
+      ],
+      "centroid": [
+        53.4082672,
+        -2.1585854
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 982216699,
+      "name": null,
+      "ref": null,
+      "highway": "primary",
+      "closed": false,
+      "node_ids": [
+        5457408243,
+        5457408241,
+        5457408235,
+        3850343899,
+        5457408236
+      ],
+      "centroid": [
+        53.4113178,
+        -2.1636771
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 984696245,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        2268327605,
+        9045026006,
+        2268327597,
+        9083914870,
+        2268327604
+      ],
+      "centroid": [
+        53.4080916,
+        -2.1581712
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 985568556,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        33071135,
+        9045026000,
+        33071147
+      ],
+      "centroid": [
+        53.4081854,
+        -2.1587108
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 985568557,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        2268327615,
+        2268327617,
+        9045025999,
+        33071135
+      ],
+      "centroid": [
+        53.4080709,
+        -2.1586915
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 985568558,
+      "name": null,
+      "ref": null,
+      "highway": "residential",
+      "closed": false,
+      "node_ids": [
+        33071156,
+        2268327609,
+        9045026005,
+        9054260800,
+        2268327605
+      ],
+      "centroid": [
+        53.4082139,
+        -2.158206
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 990508781,
+      "name": null,
+      "ref": null,
+      "highway": "primary",
+      "closed": false,
+      "node_ids": [
+        3850343902,
+        3850343892,
+        5457408244,
+        5457408234,
+        3850343895,
+        3850343900
+      ],
+      "centroid": [
+        53.4113788,
+        -2.1634037
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 1004068142,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        2268262841,
+        29940676
+      ],
+      "centroid": [
+        53.402727,
+        -2.1623516
+      ],
+      "exit_count_mapped": false
+    },
+    {
+      "id": 1098691906,
+      "name": "Armoury Roundabout",
+      "ref": "B5465",
+      "highway": "secondary",
+      "closed": false,
+      "node_ids": [
+        29940677,
+        2268262851,
+        9083914872,
+        7576103605,
+        7606829702
+      ],
+      "centroid": [
+        53.4025974,
+        -2.1626131
+      ],
+      "exit_count_mapped": false
+    }
+  ],
+  "approach_ways": [
+    {
+      "way": {
+        "id": 4705270,
+        "highway": "secondary",
+        "name": "Greek Street",
+        "ref": "B5465",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          29940675,
+          2492183537,
+          2268262844,
+          2268262839
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        29940675
+      ]
+    },
+    {
+      "way": {
+        "id": 4985859,
+        "highway": "residential",
+        "name": "Piccadilly",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          33071147,
+          2268327606,
+          33071163
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        33071147
+      ]
+    },
+    {
+      "way": {
+        "id": 25204280,
+        "highway": "secondary",
+        "name": "Shaw Heath",
+        "ref": "B6184",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          29940676,
+          1563023167,
+          9036504896,
+          274816120
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        29940676
+      ]
+    },
+    {
+      "way": {
+        "id": 25204281,
+        "highway": "secondary",
+        "name": "Shaw Heath",
+        "ref": "B6184",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          274816120,
+          10059840426,
+          1563023168,
+          9036504676,
+          29940677
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        29940677
+      ]
+    },
+    {
+      "way": {
+        "id": 25204285,
+        "highway": "secondary",
+        "name": "Mercian Way",
+        "ref": "B5465",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          274816125,
+          2268262823,
+          10059840436,
+          7606829705,
+          10059840437,
+          7576103610
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        7576103610
+      ]
+    },
+    {
+      "way": {
+        "id": 34590108,
+        "highway": "residential",
+        "name": "Piccadilly",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2268327604,
+          9045026009,
+          2268327614,
+          9054260798,
+          9045026007,
+          9054260797,
+          401552260
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        2268327604
+      ]
+    },
+    {
+      "way": {
+        "id": 34590334,
+        "highway": "residential",
+        "name": "Wellington Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2268327615,
+          9045025998,
+          9045025997,
+          9045025996,
+          401553599
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        2268327615
+      ]
+    },
+    {
+      "way": {
+        "id": 34590335,
+        "highway": "residential",
+        "name": "Wellington Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          401553599,
+          9045025994,
+          9045048069,
+          9045025995,
+          33071135
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        33071135
+      ]
+    },
+    {
+      "way": {
+        "id": 37118015,
+        "highway": "tertiary",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2518756403,
+          2518756393,
+          10202152062
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        10202152062
+      ]
+    },
+    {
+      "way": {
+        "id": 37118017,
+        "highway": "service",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2518756407,
+          10968491262,
+          431837521
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        431837521
+      ]
+    },
+    {
+      "way": {
+        "id": 217545932,
+        "highway": "secondary",
+        "name": "Greek Street",
+        "ref": "B5465",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2268262839,
+          2492183564,
+          2268262841
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        2268262841
+      ]
+    },
+    {
+      "way": {
+        "id": 217551021,
+        "highway": "residential",
+        "name": "Piccadilly",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          401552260,
+          9045026008,
+          2268327613,
+          33071131
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        33071131
+      ]
+    },
+    {
+      "way": {
+        "id": 217551022,
+        "highway": "residential",
+        "name": "Wellington Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          401552253,
+          9054260807,
+          9054260801,
+          9111430110,
+          2268327599,
+          9054260802,
+          2268327605
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        2268327605
+      ]
+    },
+    {
+      "way": {
+        "id": 217551023,
+        "highway": "residential",
+        "name": "Piccadilly",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          33071163,
+          9045026003,
+          2268327607,
+          2268327598
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        2268327598
+      ]
+    },
+    {
+      "way": {
+        "id": 228881039,
+        "highway": "residential",
+        "name": "Wellington Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          33071156,
+          9054260804,
+          2268327602,
+          9054260805,
+          9054260806,
+          401552253
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        33071156
+      ]
+    },
+    {
+      "way": {
+        "id": 244567892,
+        "highway": "unclassified",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          431837513,
+          10968491264,
+          10968491263,
+          494345095
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        431837513
+      ]
+    },
+    {
+      "way": {
+        "id": 244567903,
+        "highway": "tertiary",
+        "name": "Corporation Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          10202152057,
+          10968491269,
+          2518756415
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        10202152057
+      ]
+    },
+    {
+      "way": {
+        "id": 380515854,
+        "highway": "primary",
+        "name": "Great Egerton Street",
+        "ref": "A560",
+        "oneway": null,
+        "junction": null,
+        "nodes": [
+          5457408236,
+          3850343901,
+          1995666239,
+          9045346418,
+          9825883,
+          3838381579,
+          3838381582,
+          6326507535,
+          9825884,
+          6326507533,
+          9825885,
+          9825887
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        5457408236
+      ]
+    },
+    {
+      "way": {
+        "id": 381856709,
+        "highway": "residential",
+        "name": null,
+        "ref": null,
+        "oneway": null,
+        "junction": null,
+        "nodes": [
+          3850343904,
+          8291584236,
+          9045346447,
+          3850343900
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        3850343900
+      ]
+    },
+    {
+      "way": {
+        "id": 704924869,
+        "highway": "residential",
+        "name": "Leyland Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          6620761324,
+          9045346416,
+          9045346413,
+          9045346414,
+          6321498779
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        6620761324
+      ]
+    },
+    {
+      "way": {
+        "id": 976756537,
+        "highway": "secondary",
+        "name": "Shaw Heath",
+        "ref": "B6184",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          274816123,
+          10059840431,
+          10059840432,
+          10059840433,
+          10059840434,
+          274816117
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        274816117
+      ]
+    },
+    {
+      "way": {
+        "id": 982216698,
+        "highway": "residential",
+        "name": "Leyland Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          6321498779,
+          9045346415,
+          6620761323,
+          5457408243
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        5457408243
+      ]
+    },
+    {
+      "way": {
+        "id": 1063334341,
+        "highway": "primary",
+        "name": "Great Egerton Street",
+        "ref": "A560",
+        "oneway": null,
+        "junction": null,
+        "nodes": [
+          9767647350,
+          3850343903,
+          9174563830,
+          3850343902
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        3850343902
+      ]
+    },
+    {
+      "way": {
+        "id": 1098691903,
+        "highway": "secondary",
+        "name": "Shaw Heath",
+        "ref": "B6184",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          29940674,
+          2492183571,
+          10059840429
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        29940674
+      ]
+    },
+    {
+      "way": {
+        "id": 1098691905,
+        "highway": "secondary",
+        "name": "Mercian Way",
+        "ref": "B5465",
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          7606829702,
+          10059840438,
+          10059840439,
+          10059840440,
+          274816125
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        7606829702
+      ]
+    },
+    {
+      "way": {
+        "id": 1181048394,
+        "highway": "unclassified",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          494345095,
+          2518756380,
+          431837516
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        431837516
+      ]
+    },
+    {
+      "way": {
+        "id": 1181048395,
+        "highway": "service",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          10202152061,
+          2518756397,
+          2518756407
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        10202152061
+      ]
+    },
+    {
+      "way": {
+        "id": 1181048396,
+        "highway": "tertiary",
+        "name": "Millgate",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          9067400311,
+          2518756378,
+          2518756403
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        9067400311
+      ]
+    },
+    {
+      "way": {
+        "id": 1181048397,
+        "highway": "tertiary",
+        "name": "Corporation Street",
+        "ref": null,
+        "oneway": "yes",
+        "junction": null,
+        "nodes": [
+          2518756415,
+          2518756411,
+          431837498
+        ],
+        "exit_tags": {}
+      },
+      "joins_ring_at_nodes": [
+        431837498
+      ]
+    }
+  ],
+  "named_hint_ways": [
+    {
+      "id": 1098691903,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        29940674,
+        2492183571,
+        10059840429
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 1098691904,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        10059840429,
+        10059840430,
+        274816123
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 1098691905,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        7606829702,
+        10059840438,
+        10059840439,
+        10059840440,
+        274816125
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 1099354370,
+      "highway": null,
+      "name": "Shaw Heath Health Centre",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        10064364904,
+        10064364905,
+        10064364906,
+        10064364907,
+        10064364908,
+        10064364909,
+        10065055941,
+        10064364910,
+        10064364911,
+        10064364912,
+        10064364913,
+        10064364914,
+        10064364915,
+        10065055950,
+        10064364916,
+        10064381217,
+        10064381218,
+        10064381219,
+        10064364904
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 117479598,
+      "highway": "residential",
+      "name": "Armoury Street",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        1323454418,
+        2885007161,
+        9038757489,
+        1323454421
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 1372990631,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        2876464988,
+        9264516367,
+        9036504677,
+        9036504895,
+        274816120
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 1372990632,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        430871337,
+        7606787968,
+        9062246594,
+        6080338941
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 194728550,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        363429501,
+        767841422,
+        767841424,
+        12264339105,
+        10060654985,
+        274812446,
+        274812447,
+        9902976651,
+        2905418427,
+        274812448,
+        274812449,
+        430762043,
+        767107117,
+        274812450,
+        9261733103,
+        10059840422,
+        2470183053,
+        29940679
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 217548123,
+      "highway": null,
+      "name": "Armoury Street Car Park",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        2268294486,
+        2885007183,
+        9035868530,
+        9035868549,
+        9035868529,
+        9035868543,
+        2268294494,
+        2268294488,
+        9035868542,
+        9035868541,
+        9035868540,
+        9035868539,
+        9035868538,
+        9035868537,
+        9035868536,
+        9035868535,
+        9035868534,
+        9037716590,
+        9035868533,
+        2268294489,
+        2885007167,
+        2885007184,
+        2885007180,
+        2885007181,
+        2268294492,
+        2268294486
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 238480200,
+      "highway": null,
+      "name": "Edgeley Junction №2 Signal Box",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        2463130414,
+        8664273861,
+        2463130424,
+        2463130387,
+        2463130428,
+        2463130414
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 239367838,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        1323469667,
+        2314646607,
+        6882187229,
+        10061719594,
+        6699294863,
+        2198041416,
+        2314646624,
+        29940678,
+        2314646632,
+        2876464988
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 239576085,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        274816125,
+        7606829699,
+        10059806011,
+        1563023169,
+        10059806012,
+        430871336,
+        7606829698,
+        7606829697
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 25204280,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        29940676,
+        1563023167,
+        9036504896,
+        274816120
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 25204281,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        274816120,
+        10059840426,
+        1563023168,
+        9036504676,
+        29940677
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 25204285,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        274816125,
+        2268262823,
+        10059840436,
+        7606829705,
+        10059840437,
+        7576103610
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 283816205,
+      "highway": null,
+      "name": "Stockport Armoury",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        2876465006,
+        9035832479,
+        2876465020,
+        9035832480,
+        9035832481,
+        9035832482,
+        9035832483,
+        2876465025,
+        9035832484,
+        9035832485,
+        9035832486,
+        9035832487,
+        9035832488,
+        9035832489,
+        2876465015,
+        2876465016,
+        2876465014,
+        2876465013,
+        2876465011,
+        9035832490,
+        9035832491,
+        9035832492,
+        2885007178,
+        2885007175,
+        2876465006
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 41405722,
+      "highway": null,
+      "name": "Edgeley Park Stadium",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        5348989015,
+        7880742211,
+        7880742212,
+        5348989017,
+        5348989016,
+        5348988998,
+        7880742230,
+        5348988999,
+        7880742164,
+        7880742228,
+        7880742229,
+        7880742165,
+        7880742162,
+        5348989002,
+        7880742155,
+        5348989003,
+        7880742171,
+        7880742172,
+        7880742177,
+        7880742176,
+        7880742175,
+        7880742174,
+        5348989001,
+        7880742232,
+        7880742231,
+        5348989000,
+        5348989004,
+        5348989005,
+        7966845162,
+        7880742233,
+        506366531,
+        7880742184,
+        1018382728,
+        7880742185,
+        7880742186,
+        7880742187,
+        1018382682,
+        7880742188,
+        5348989010,
+        7880742140,
+        7880742141,
+        7880742142,
+        7880742143,
+        7880742144,
+        7880742127,
+        5348989014,
+        7880742202,
+        7880742223,
+        1018382707,
+        7880742199,
+        7880742200,
+        7880742222,
+        7880742221,
+        7880742217,
+        7880742220,
+        7880742219,
+        506366534,
+        7880742225,
+        7880742226,
+        7880742227,
+        1018382725,
+        7880742126,
+        7880742216,
+        7880742215,
+        7880742125,
+        7880742124,
+        5348989015
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 4705269,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        29940671,
+        10059840418,
+        7606829696,
+        2001777513,
+        7606787964,
+        1563023166,
+        7606787963
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 4705271,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        29940679,
+        9261733104,
+        9261733105,
+        2470183017,
+        274812451
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 49069672,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        274812451,
+        1323469667
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 676476476,
+      "highway": null,
+      "name": "Edgeley Junction and Northenden Branch",
+      "ref": "EJN",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        3210143341,
+        2503502234,
+        8664273854,
+        8664273858,
+        2463130394,
+        2463130404,
+        2463130415,
+        2463130391,
+        2463130426
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814325172,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        7606787961,
+        7606787959,
+        7970917680,
+        461966838
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814325173,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        7606787965,
+        7606787960,
+        7606787961
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814325174,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        7606787966,
+        7606787962,
+        467131365,
+        7970970709,
+        7606787965
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814325176,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        7606787963,
+        9221258254,
+        430871338,
+        7606787966
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814325177,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        6080338941,
+        461966851,
+        7606787967,
+        10059840417,
+        29940671
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 814328021,
+      "highway": "secondary",
+      "name": "Mercian Way",
+      "ref": "B5465",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        7606829697,
+        10059806015,
+        10059806014,
+        430871337
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 921428967,
+      "highway": null,
+      "name": "Edgeley Junction and Northenden Branch",
+      "ref": "EJN",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        29426451,
+        1650576320,
+        1650576124,
+        8664273850,
+        1493327997,
+        1650576203,
+        363447170,
+        1650576355,
+        363447172,
+        1650576290,
+        363447173,
+        1650576042,
+        1650576034,
+        1650576305,
+        363447174,
+        1650576046,
+        363447175,
+        1650576036,
+        1650576195,
+        363447176,
+        8664273853,
+        1679571781,
+        363447177,
+        2503502235,
+        2503502247
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 936831740,
+      "highway": null,
+      "name": "Edgeley Shopping Centre",
+      "ref": null,
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        8680547999,
+        8680548000,
+        8680548001,
+        8680548002,
+        8680548003,
+        8680548004,
+        8680548005,
+        8680548006,
+        8680548007,
+        8680548008,
+        8680548009,
+        8680548010,
+        8680548011,
+        4353258934,
+        7623644833,
+        7623644834,
+        8680548012,
+        8680548013,
+        8680548014,
+        8680548015,
+        8680548016,
+        8680548017,
+        8680548018,
+        8680548019,
+        8680548020,
+        8680548021,
+        8685204583,
+        8680548022,
+        8685204582,
+        8685204581,
+        8680548023,
+        8680548024,
+        8680548025,
+        8680547999
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 937818084,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        9038756952,
+        8691001356,
+        473132056,
+        9036504910,
+        3562539,
+        9038756950
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 976756519,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "no",
+      "junction": null,
+      "nodes": [
+        9038756947,
+        274816123
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 976756520,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        2782062791,
+        9038756948,
+        2268294499,
+        9038756947
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 976756521,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        9038756950,
+        514874533,
+        9038756951,
+        461966870,
+        9038756949,
+        2782062791
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 976756522,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": null,
+      "junction": null,
+      "nodes": [
+        8691001372,
+        9038756953,
+        9038756952
+      ],
+      "exit_tags": {}
+    },
+    {
+      "id": 976756537,
+      "highway": "secondary",
+      "name": "Shaw Heath",
+      "ref": "B6184",
+      "oneway": "yes",
+      "junction": null,
+      "nodes": [
+        274816123,
+        10059840431,
+        10059840432,
+        10059840433,
+        10059840434,
+        274816117
+      ],
+      "exit_tags": {}
+    }
+  ]
+}
