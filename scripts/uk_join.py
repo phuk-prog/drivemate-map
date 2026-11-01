@@ -327,7 +327,10 @@ def build(github, wanted, previous_files, work):
                 raise ValueError(f'Regional file integrity failed: {copy["region"]}/{name}')
             documents.append(read(path))
         if name == SEARCH and NATIONAL_POSTCODES:
-            documents.append(read(Path(NATIONAL_POSTCODES)))
+            # read() picks the search-list parser by file name, so stage a copy under that name.
+            staged = folder / SEARCH
+            shutil.copyfile(NATIONAL_POSTCODES, staged)
+            documents.append(read(staged))
         out = work / 'out' / name
         merged = merge(name, documents)
         write(out, merged)

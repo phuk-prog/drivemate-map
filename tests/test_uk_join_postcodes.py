@@ -33,5 +33,23 @@ class NationalPostcodeJoinTest(unittest.TestCase):
         self.assertNotEqual(first, second)
 
 
+class StagedPostcodeReadTest(unittest.TestCase):
+    def test_postcode_file_is_read_as_a_search_list_once_staged(self):
+        import gzip
+        import shutil
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / 'postcodes-uk.tsv.gz'
+            with gzip.open(src, 'wt', encoding='utf-8', newline='\n') as f:
+                f.write(HEADER + '\n')
+                f.write('ab10aa\tP\t\tAB1\t57.1015\t-2.2429\n')
+                f.write('sk82ez\tP\t\tSK8\t53.3700\t-2.2300\n')
+            staged = Path(tmp) / uk_join.SEARCH
+            shutil.copyfile(src, staged)
+            header, rows = uk_join.read(staged)
+        self.assertTrue(header.startswith(uk_join.SEARCH_HEADER + '\t'))
+        self.assertEqual(2, len(rows))
+
+
 if __name__ == '__main__':
     unittest.main()
