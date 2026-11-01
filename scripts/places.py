@@ -152,7 +152,8 @@ if args.osm_addresses and os.path.exists(args.osm_addresses):
             feat = json.loads(line)
             p = feat.get("properties") or {}
             number, street = clean(p.get("addr:housenumber")), clean(p.get("addr:street"))
-            if not number or not street:
+            postcode = clean(p.get("addr:postcode")).upper()
+            if not number or not (street or postcode):
                 continue
             g = feat.get("geometry") or {}
             coords = g.get("coordinates")
@@ -168,6 +169,10 @@ if args.osm_addresses and os.path.exists(args.osm_addresses):
             place = next((clean(p.get(k)) for k in ("addr:city", "addr:town", "addr:village", "addr:suburb", "addr:hamlet")
                           if clean(p.get(k))), "")
             addr = ", ".join(x for x in (place, clean(p.get("addr:postcode"))) if x)
+            if not street:
+                # House number with a postcode but no street tag: searchable as "12 SK8 2EZ".
+                add("osm_addresses", f"{number} {postcode}", "address", addr, lat, lon)
+                continue
             add("osm_addresses", f"{number} {street}", "address", addr, lat, lon)
             # Flats: addr:unit on a unit, or addr:flats as a list of single flat numbers on a building.
             # Ranges such as "1-4" are skipped rather than guessed.

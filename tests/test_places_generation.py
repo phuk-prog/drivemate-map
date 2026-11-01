@@ -36,6 +36,27 @@ class PlacesGenerationTests(unittest.TestCase):
             self.assertEqual(len(records), 4)
             self.assertTrue(all(row[2] == '12 Example Road' for row in records))
 
+    def test_house_number_with_postcode_but_no_street_is_searchable(self):
+        features = [
+            {'type': 'Feature', 'properties': {'addr:housenumber': '12', 'addr:postcode': 'sk8 2ez'},
+             'geometry': {'type': 'Point', 'coordinates': [-2.1942, 53.3954]}},
+            {'type': 'Feature', 'properties': {'addr:housenumber': '14'},
+             'geometry': {'type': 'Point', 'coordinates': [-2.1943, 53.3955]}},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'addresses.geojsonseq'
+            source.write_text('\n'.join(json.dumps(f) for f in features) + '\n')
+            generator = Path(__file__).resolve().parents[1] / 'scripts/places.py'
+            subprocess.run([sys.executable, str(generator), str(root / 'out'),
+                            '--osm-addresses', str(source)], capture_output=True, text=True, check=True)
+            records = []
+            for path in (root / 'out').glob('*.json.gz'):
+                with gzip.open(path, 'rt') as stream:
+                    records.extend(json.load(stream))
+        self.assertEqual(['12 SK8 2EZ'], [row[0] for row in records])
+        self.assertEqual('address', records[0][1])
+
     def test_nonfinite_coordinates_are_counted_before_tile_indexing(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
