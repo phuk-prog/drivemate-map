@@ -15,24 +15,41 @@ from shapely import wkt
 from shapely.geometry import MultiPolygon
 
 NAME = 'Northern Ireland'
+ISO_CODE = 'GB-NIR'
 # Loose sanity envelope (west, south, east, north). The real region sits inside it;
 # a relation outside it is the wrong object.
 ENVELOPE = (-8.3, 53.9, -5.3, 55.4)
 
 
+def _is_northern_ireland(tags):
+    """Name or ISO 3166-2 code, as administrative boundary level 4."""
+    return (tags.get('name') == NAME or tags.get('ISO3166-2') == ISO_CODE) \
+        and tags.get('boundary') == 'administrative' and tags.get('admin_level') == '4'
+
+
 def boundary_geometry(osm_path):
-    """Return the one Northern Ireland boundary in an OSM file as a shapely geometry."""
+    """Return the one Northern Ireland boundary in an OSM file as a shapely geometry.
+
+    On failure the error lists the near misses (any relation naming Northern Ireland or
+    carrying its ISO code), so a real-data failure shows its cause in the job log.
+    """
     matches = []
+    near = []
     for obj in osmium.FileProcessor(str(osm_path)).with_areas().with_locations():
-        if (obj.is_area() and obj.tags.get('name') == NAME
-                and obj.tags.get('boundary') == 'administrative'
-                and obj.tags.get('admin_level') == '4'):
+        if not obj.is_area():
+            continue
+        tags = {k: v for k, v in obj.tags}
+        if _is_northern_ireland(tags):
             try:
                 matches.append(WKTFactory().create_multipolygon(obj))
             except RuntimeError as exc:
                 raise ValueError(f'Northern Ireland boundary could not be assembled: {exc}') from exc
+        elif NAME in tags.get('name', '') or ISO_CODE in tags.get('ISO3166-2', ''):
+            if len(near) < 5:
+                near.append({k: tags[k] for k in ('name', 'boundary', 'admin_level', 'type', 'ISO3166-2') if k in tags})
     if len(matches) != 1:
-        raise ValueError(f'Expected one Northern Ireland boundary, found {len(matches)}')
+        detail = f'; near misses: {near}' if near else '; no area names Northern Ireland or GB-NIR'
+        raise ValueError(f'Expected one Northern Ireland boundary, found {len(matches)}{detail}')
     geom = wkt.loads(matches[0])
     if geom.is_empty or not geom.is_valid or geom.geom_type not in ('Polygon', 'MultiPolygon'):
         raise ValueError('Invalid Northern Ireland boundary geometry')

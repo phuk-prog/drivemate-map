@@ -71,6 +71,18 @@ class NorthernIrelandBoundaryTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'envelope'):
                 ni_boundary.boundary_geometry(write_osm(tmp, far))
 
+    def test_boundary_found_by_iso_code_when_name_is_missing(self):
+        text = NI_SQUARE.replace('<tag k="name" v="Northern Ireland"/>', '<tag k="ISO3166-2" v="GB-NIR"/>')
+        with tempfile.TemporaryDirectory() as tmp:
+            geom = ni_boundary.boundary_geometry(write_osm(tmp, text))
+        self.assertEqual((-7.0, 54.0, -6.0, 55.0), tuple(round(v, 6) for v in geom.bounds))
+
+    def test_miss_reports_near_misses_for_the_job_log(self):
+        text = NI_SQUARE.replace('<tag k="name" v="Northern Ireland"/>', '<tag k="name" v="Northern Ireland (old)"/>')
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "near misses"):
+                ni_boundary.boundary_geometry(write_osm(tmp, text))
+
     def test_poly_file_round_trips_the_outer_ring(self):
         with tempfile.TemporaryDirectory() as tmp:
             geom = ni_boundary.boundary_geometry(write_osm(tmp, NI_SQUARE))
