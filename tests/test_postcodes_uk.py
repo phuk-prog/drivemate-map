@@ -39,6 +39,21 @@ class PostcodeLinesTest(unittest.TestCase):
         self.assertEqual('sk82ez\tP\t\tSK8\t53.3700\t-2.2300', body[1])
         self.assertTrue(all(len(line.split('\t')) == 6 for line in body))
 
+    def test_channel_islands_postcodes_are_kept_and_far_south_points_dropped(self):
+        rows = [
+            ['JE2 3AB', 'live', 'small', '1', '2', '1', 'Jersey', '49.1907', '-2.1093', 'x', 'y', 'z'],
+            ['GY1 1AA', 'live', 'small', '1', '2', '1', 'Guernsey', '49.4540', '-2.5350', 'x', 'y', 'z'],
+            ['XX1 1AA', 'live', 'small', '1', '2', '1', 'Elsewhere', '48.9000', '-2.0000', 'x', 'y', 'z'],
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            src = make_zip(tmp, rows)
+            out = Path(tmp) / 'out.tsv.gz'
+            count = postcodes_uk.build(src, out, date='2026-11-01')
+            body = gzip.open(out, 'rt', encoding='utf-8').read().splitlines()[1:]
+        self.assertEqual(2, count)
+        self.assertEqual(['gy11aa', 'je23ab'], [line.split('\t')[0] for line in body])
+        self.assertEqual('je23ab\tP\t\tJE2\t49.1907\t-2.1093', body[1])
+
 
 if __name__ == '__main__':
     unittest.main()

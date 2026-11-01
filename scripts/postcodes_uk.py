@@ -34,7 +34,7 @@ def lines_from_csv(text_file):
             lat, lon = float(row[7]), float(row[8])
         except ValueError:
             continue
-        if not (49.8 <= lat <= 60.9 and -8.7 <= lon <= 1.8):
+        if not (49.1 <= lat <= 60.9 and -8.7 <= lon <= 1.8):  # includes Jersey and Guernsey (GY, JE)
             continue
         outward = postcode.split(" ")[0]
         key = key_of(postcode)
