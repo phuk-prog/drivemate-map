@@ -16,9 +16,10 @@ from shapely.geometry import MultiPolygon
 
 NAME = 'Northern Ireland'
 ISO_CODE = 'GB-NIR'
-# Loose sanity envelope (west, south, east, north). The real region sits inside it;
-# a relation outside it is the wrong object.
-ENVELOPE = (-8.3, 53.9, -5.3, 55.4)
+# Sanity envelope (west, south, east, north), from the OpenStreetMap boundary (relation 156393:
+# lat 53.87 to 55.44, lon -8.18 to -5.08; it includes some sea area to the east). A relation
+# outside it is the wrong object.
+ENVELOPE = (-8.3, 53.8, -5.0, 55.5)
 
 
 def _is_northern_ireland(tags):
