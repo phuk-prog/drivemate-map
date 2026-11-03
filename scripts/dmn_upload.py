@@ -24,7 +24,7 @@ publisher = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(publisher)
 
 DATED = re.compile(r'dmn-uk-[0-9]{8}-[0-9]{1,10}')
-PIECE = re.compile(r'dmn-[A-Za-z0-9_-]+\.dmnpack')
+PIECE = re.compile(r'dmn-[A-Za-z0-9_-]+\.dmnpack|dmn-ent-[0-9_-]+\.tsv\.gz')  # road pieces and their entrance files (P15.2)
 NOTES = 'DMN road map pieces for the DriveMate app, from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0).'
 
 

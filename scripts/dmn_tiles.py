@@ -7,12 +7,17 @@ reader (drivemate-tests tools/dmn_pack.py) from the UK OpenStreetMap extract. Ea
 read from an extract with a margin, so dead ends, barriers and turn bans at its edge are read as in
 the whole map; the phone joins squares by OSM node id.
 
+P15.2: each square also gets its OSM entrance points (dmn-ent-<y>_<x>.tsv.gz: nodes tagged
+entrance=* or amenity=parking_entrance inside the square, their tags copied as they are), so the
+phone can end a route on the road nearest the destination's entrance. Nothing is inferred.
+
     python3 scripts/dmn_tiles.py band uk.osm.pbf --rows 199:204 --dmn DMN_DIR --out out/
     python3 scripts/dmn_tiles.py main uk.osm.pbf --dmn DMN_DIR --out out/
     python3 scripts/dmn_tiles.py index out/ --source TAG
 """
 import argparse
 import concurrent.futures
+import gzip
 import hashlib
 import json
 import math
@@ -26,6 +31,9 @@ MARGIN = 0.03  # degrees read around each square (about 3 km)
 WEST, EAST = -8.75, 2.0  # UK and Ireland's island of Ireland edge to the North Sea
 BLOCK = 2  # degrees: main roads are also cut into blocks this size (8 squares of a quarter degree)
 MIN_BYTES = 2_000  # an extract smaller than this has no roads worth a piece
+ENT_HEADER = "#drivemate-entrances"
+ENT_COLUMNS = ("osm_node", "lat_e7", "lon_e7", "entrance", "amenity", "access")
+ATTRIBUTION = "© OpenStreetMap contributors, ODbL 1.0"
 
 
 def run(*cmd, **kw):
@@ -60,6 +68,46 @@ def road_squares(pbf, work):
     roads.unlink()
     return found
 
+
+
+def _clean(value):
+    """A tag value as one TSV field (OSM values are free text): tabs and line breaks become spaces."""
+    return " ".join(str(value or "").split())[:255]
+
+
+def entrances(pbf, work, bounds):
+    """OSM entrance points inside bounds (S, W, N, E; south/west edges inclusive), sorted by node id."""
+    import osmium
+    s, w, n, e = bounds
+    tagged = work / f"ent-{Path(pbf).stem}.osm.pbf"
+    run("osmium", "tags-filter", pbf, "n/entrance", "n/amenity=parking_entrance", "-o", tagged, "--overwrite")
+    rows = []
+
+    class Nodes(osmium.SimpleHandler):
+        def node(self, node):
+            if not node.location.valid():
+                return
+            la, lo = node.location.lat, node.location.lon
+            if not (s <= la < n and w <= lo < e):
+                return
+            t = node.tags
+            amenity = t.get("amenity", "")
+            if "entrance" not in t and amenity != "parking_entrance":
+                return
+            rows.append((node.id, round(la * 1e7), round(lo * 1e7), _clean(t.get("entrance", "")),
+                         "parking_entrance" if amenity == "parking_entrance" else "", _clean(t.get("access", ""))))
+
+    Nodes().apply_file(str(tagged))
+    tagged.unlink()
+    return sorted(rows)
+
+
+def write_entrances(rows, dest, source):
+    """Same rows, same bytes (no name or time in the gzip header)."""
+    lines = ["\t".join((ENT_HEADER, "1", _clean(source), ATTRIBUTION)), "\t".join(ENT_COLUMNS)]
+    lines += ["\t".join(map(str, r)) for r in rows]
+    with open(dest, "wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as out:
+        out.write(("\n".join(lines) + "\n").encode("utf-8"))
 
 
 def require_uk_road_squares(squares):
@@ -102,10 +150,14 @@ def band(a):
             src.unlink()
             return None
         meta = pack(a.dmn, src, dest, ["--source", a.source, "--tile", f"{y / 4},{x / 4},{(y + 1) / 4},{(x + 1) / 4}"])
-        src.unlink()
         if not meta or meta["edges"] == 0:
+            src.unlink()
             dest.unlink(missing_ok=True)
             return None
+        rows = entrances(src, work, (y / 4, x / 4, (y + 1) / 4, (x + 1) / 4))
+        src.unlink()
+        write_entrances(rows, out / f"dmn-ent-{y}_{x}.tsv.gz", a.source)
+        meta["entrance_points"] = len(rows)
         return f"{y}_{x}", meta
 
     with concurrent.futures.ThreadPoolExecutor(a.jobs) as pool:
@@ -153,6 +205,10 @@ def index(a):
     out = Path(a.out)
     tiles = {}
     regions = {}
+    entrances = {}
+    for f in sorted(out.glob("dmn-ent-*_*.tsv.gz")):
+        key = f.name.removeprefix("dmn-ent-").removesuffix(".tsv.gz")
+        entrances[key] = {"file": f.name, "sha256": sha(f), "bytes": f.stat().st_size}
     for f in sorted(out.glob("dmn-*_*.dmnpack")):
         key = f.stem.removeprefix("dmn-")
         (regions if key.startswith("main-") else tiles)[key] = {"file": f.name, "sha256": sha(f), "bytes": f.stat().st_size}
@@ -163,6 +219,12 @@ def index(a):
            "attribution": "© OpenStreetMap contributors, ODbL 1.0",
            "main": {"file": main.name, "sha256": sha(main), "bytes": main.stat().st_size},
            "tiles": tiles, "regions": regions}
+    if entrances:
+        # P15.2: one entrance file per road square (older apps ignore this key).
+        stray = sorted(set(entrances) - set(tiles))
+        if stray:
+            raise SystemExit(f"entrance files without a road square: {stray[:3]}")
+        doc["entrances"] = entrances
     if a.regions:
         # The regional catalogue these pieces answer to (dmn_due.py), for the twice-daily rebuild check.
         doc["catalog_regions"] = json.loads(Path(a.regions).read_text())

@@ -177,7 +177,7 @@ jobs:
           REL: ${{ steps.index.outputs.rel }}
         run: |
           # Resumes after GitHub's API rate limit instead of failing part-way (C02.3).
-          python3 scripts/dmn_upload.py --repo "$GITHUB_REPOSITORY" --release "$REL" parts/*.dmnpack
+          python3 scripts/dmn_upload.py --repo "$GITHUB_REPOSITORY" --release "$REL" parts/*.dmnpack parts/dmn-ent-*.tsv.gz
       - name: Check every piece uploaded whole
         env:
           REL: ${{ steps.index.outputs.rel }}
