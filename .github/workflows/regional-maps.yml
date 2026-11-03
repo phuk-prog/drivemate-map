@@ -120,7 +120,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.matrix != '' && needs.plan.outputs.matrix != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The pilot is a whole-country extract and needs longer; the automatic UK builds keep 90.
+    timeout-minutes: ${{ inputs.pilot && 300 || 90 }}
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -214,6 +215,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p work/entries
-          python3 -m pip install -q PyYAML==6.0.3
+          python3 -m pip install -q PyYAML==6.0.3 shapely==2.2.0 pyproj==3.8.0 pmtiles==3.4.1 mapbox-vector-tile==2.2.0 osmium==4.3.1 overturemaps pyarrow
           python3 scripts/progressive_regions.py --repo "$GITHUB_REPOSITORY" promote \
             --plan work/plan.json --entries work/entries | tee -a "$GITHUB_STEP_SUMMARY"
