@@ -22,6 +22,18 @@ def catalog():
     return {'schema': 1, 'coverage': 'partial', 'regions': {}}
 
 
+class PilotRegionScopeTests(unittest.TestCase):
+    def test_ireland_pilot_is_not_in_the_automatic_uk_plan(self):
+        ids = [r['id'] for r in regions.INITIAL]
+        self.assertNotIn('ireland-pilot', ids)
+        self.assertEqual(regions.PILOT['id'], regions.pilot_region()['id'])
+        self.assertEqual('ireland-pilot', regions.pilot_region()['id'])
+
+    def test_pilot_source_is_the_geofabrik_ireland_extract_only(self):
+        self.assertEqual(regions.IRELAND_SOURCE, regions.pilot_region()['source_url'])
+        self.assertIn('/ireland-and-northern-ireland-latest.osm.pbf', regions.pilot_region()['source_url'])
+
+
 class ProgressiveRegionTests(unittest.TestCase):
     def test_stockport_first_then_manchester_then_small_extracts_never_whole_uk(self):
         index = {'features': [feature('united-kingdom', 'europe', [-8,49,2,61]),

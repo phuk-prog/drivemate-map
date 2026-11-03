@@ -30,12 +30,21 @@ ROOT = Path(__file__).resolve().parents[1]
 CATALOG_TAG = 'map-regions'
 CATALOG_FILE = 'catalog.json'
 GM_SOURCE = 'https://download.geofabrik.de/europe/united-kingdom/england/greater-manchester-latest.osm.pbf'
+IRELAND_SOURCE = 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf'
 INITIAL = [
     {'id': 'stockport', 'name': 'Stockport area', 'bounds': [-2.29, 53.30, -1.98, 53.47],
      'source_url': GM_SOURCE, 'sample': [-2.1575, 53.4052], 'inland': True},
     {'id': 'manchester', 'name': 'Manchester area', 'bounds': [-2.35, 53.36, -2.12, 53.56],
      'source_url': GM_SOURCE, 'sample': [-2.2309, 53.4774], 'inland': True},
 ]
+# Category 1 pilot: one Republic of Ireland region. It is never part of the automatic UK
+# expansion; it is built only when asked for explicitly through pilot_region().
+PILOT = {'id': 'ireland-pilot', 'name': 'Ireland pilot', 'bounds': [-10.60, 51.40, -5.90, 55.45],
+         'source_url': IRELAND_SOURCE, 'sample': [-6.2603, 53.3498], 'inland': True}
+
+def pilot_region():
+    return copy.deepcopy(PILOT)
+
 # Crown dependencies are outside the four-nation UK map scope. Retire
 # any historical catalogue references without deleting immutable releases.
 OUT_OF_SCOPE = frozenset(('isle-of-man', 'guernsey-jersey'))
