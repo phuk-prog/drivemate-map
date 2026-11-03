@@ -29,6 +29,10 @@ class PilotRegionScopeTests(unittest.TestCase):
         self.assertEqual(regions.PILOT['id'], regions.pilot_region()['id'])
         self.assertEqual('ireland-pilot', regions.pilot_region()['id'])
 
+    def test_pilot_build_plans_only_the_pilot_region(self):
+        due = regions.pilot_due()
+        self.assertEqual(['ireland-pilot'], [r['id'] for r in due])
+
     def test_pilot_source_is_the_geofabrik_ireland_extract_only(self):
         self.assertEqual(regions.IRELAND_SOURCE, regions.pilot_region()['source_url'])
         self.assertIn('/ireland-and-northern-ireland-latest.osm.pbf', regions.pilot_region()['source_url'])

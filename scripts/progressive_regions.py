@@ -422,10 +422,20 @@ def due_regions(plan, catalog, signals, fingerprint, version, changes_slot, limi
     return due
 
 
+def pilot_due():
+    """The explicit pilot build: only the Ireland pilot, never part of the automatic UK queue."""
+    return [pilot_region()]
+
+
 def cmd_plan(args, github):
     ctx = context(github, args.work)
-    signals = read_signals({r['source_url'] for r in ctx['plan']})
-    due = due_regions(ctx['plan'], ctx['catalog'], signals, ctx['fingerprint'], ctx['version'], ctx['changes_slot'])
+    if getattr(args, 'pilot', False):
+        due = pilot_due()
+        signals = read_signals({r['source_url'] for r in due})
+        ctx['plan'] = ctx['plan'] + [r for r in due if r['id'] not in {x['id'] for x in ctx['plan']}]
+    else:
+        signals = read_signals({r['source_url'] for r in ctx['plan']})
+        due = due_regions(ctx['plan'], ctx['catalog'], signals, ctx['fingerprint'], ctx['version'], ctx['changes_slot'])
     print(f"Published map regions: {len(ctx['catalog']['regions'])} of {len(ctx['plan'])} planned; "
           f"{len(due)} to build for {ctx['changes_slot']}", flush=True)
     if due:
@@ -546,6 +556,7 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('plan', help='Choose every region this update must build')
     p.add_argument('--out', required=True)
+    p.add_argument('--pilot', action='store_true', help='Build only the Ireland pilot region')
     b = sub.add_parser('build', help='Build and upload one planned region')
     b.add_argument('--plan', required=True)
     b.add_argument('--region', required=True)

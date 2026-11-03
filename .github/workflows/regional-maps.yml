@@ -9,6 +9,11 @@ name: Progressive regional maps
 # map-watchdog.yml starts another update for it.
 on:
   workflow_dispatch:
+    inputs:
+      pilot:
+        description: 'Build only the category 1 Ireland pilot region (never the automatic UK queue)'
+        type: boolean
+        default: false
   schedule:
     # 01:00 and 14:00 UK. Each pair is BST/GMT; daily_schedule.py runs exactly one of each.
     - cron: '0 0 * * *'
@@ -95,10 +100,14 @@ jobs:
       - name: Choose every region behind this update
         id: plan
         if: steps.clock.outputs.due == 'true'
+        env:
+          PILOT: ${{ inputs.pilot }}
         run: |
           set -euo pipefail
           mkdir -p work
-          python3 scripts/progressive_regions.py --repo "$GITHUB_REPOSITORY" plan --out work/plan.json | tee work/plan.log
+          pilot_flag=""
+          if [ "$PILOT" = "true" ]; then pilot_flag="--pilot"; fi
+          python3 scripts/progressive_regions.py --repo "$GITHUB_REPOSITORY" plan --out work/plan.json $pilot_flag | tee work/plan.log
           grep '^matrix=' work/plan.log | tail -1 >> "$GITHUB_OUTPUT"
       - if: steps.clock.outputs.due == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
