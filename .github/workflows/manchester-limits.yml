@@ -23,7 +23,7 @@ permissions:
 # Independent group: this workflow is also a map-build prerequisite.
 concurrency:
   group: manchester-limits-${{ github.event_name }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 env:
   SOURCE_URL: https://download.geofabrik.de/europe/united-kingdom/england/greater-manchester-latest.osm.pbf

@@ -52,3 +52,4 @@ jobs:
           name: data-preflight
           path: build/reports/unified-preflight.json
           if-no-files-found: error
+          retention-days: 3
