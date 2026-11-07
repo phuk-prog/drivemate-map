@@ -131,17 +131,8 @@ def validate_pointer(document):
 
 def read_pointer(github, directory):
     """Read and verify the mutable pointer before deciding whether content changed."""
-    try:
-        inventory = github.inventory(POINTER_TAG)
-    except publisher.GitHubError as exc:
-        if 'HTTP 404' in str(exc):
-            return None
-        raise
-    if POINTER not in inventory:
-        return None
-    path = github.download(POINTER_TAG, POINTER, Path(directory))
-    publisher.verify_inventory(inventory, {POINTER: publisher.metadata(path, POINTER_TAG)}, POINTER_TAG)
-    return validate_pointer(json.loads(path.read_text()))
+    document = publisher.read_verified_pointer(github, directory, POINTER_TAG, POINTER)
+    return None if document is None else validate_pointer(document)
 
 
 def publish(github, archive, tag, directory, sources):

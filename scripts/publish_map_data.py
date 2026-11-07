@@ -53,6 +53,24 @@ def digest(path):
     return result.hexdigest()
 
 
+def read_verified_pointer(github, directory, tag, pointer):
+    """Download a mutable pointer, verify it against the release inventory, and return its JSON.
+
+    Returns None when the release or pointer does not exist yet. Callers apply their own validation.
+    """
+    try:
+        inventory = github.inventory(tag)
+    except GitHubError as exc:
+        if 'HTTP 404' in str(exc):
+            return None
+        raise
+    if pointer not in inventory:
+        return None
+    path = github.download(tag, pointer, Path(directory))
+    verify_inventory(inventory, {pointer: metadata(path, tag)}, tag)
+    return json.loads(path.read_text())
+
+
 def metadata(path, tag):
     return {'sha256': digest(path), 'bytes': Path(path).stat().st_size, 'tag': tag}
 

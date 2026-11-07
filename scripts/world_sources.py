@@ -121,17 +121,8 @@ def require_pointer(doc):
 
 
 def read_pointer(github, directory):
-    try:
-        listing = github.inventory(POINTER_TAG)
-    except publisher.GitHubError as exc:
-        if "HTTP 404" in str(exc):
-            return None
-        raise
-    if POINTER not in listing:
-        return None
-    src = github.download(POINTER_TAG, POINTER, Path(directory))
-    publisher.verify_inventory(listing, {POINTER: publisher.metadata(src, POINTER_TAG)}, POINTER_TAG)
-    return require_pointer(json.loads(src.read_text()))
+    document = publisher.read_verified_pointer(github, directory, POINTER_TAG, POINTER)
+    return None if document is None else require_pointer(document)
 
 
 def publish(github, directory, summaries, tag):

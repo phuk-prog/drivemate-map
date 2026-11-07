@@ -72,17 +72,8 @@ def validate_pointer(doc):
 
 
 def read_pointer(github, folder):
-    try:
-        inventory = github.inventory(TAG)
-    except publisher.GitHubError as e:
-        if "HTTP 404" in str(e):
-            return None
-        raise
-    if POINTER not in inventory:
-        return None
-    filename = github.download(TAG, POINTER, Path(folder))
-    publisher.verify_inventory(inventory, {POINTER: publisher.metadata(filename, TAG)}, TAG)
-    return validate_pointer(json.loads(filename.read_text()))
+    document = publisher.read_verified_pointer(github, folder, TAG, POINTER)
+    return None if document is None else validate_pointer(document)
 
 
 def is_due(source, current, pipeline):

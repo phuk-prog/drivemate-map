@@ -37,17 +37,8 @@ KEEP_MAPS = 2
 
 
 def read_pointer(github, directory):
-    try:
-        assets = github.inventory(POINTER_TAG)
-    except publisher.GitHubError as error:
-        if 'HTTP 404' in str(error):
-            return None
-        raise
-    if POINTER not in assets:
-        return None
-    path = github.download(POINTER_TAG, POINTER, Path(directory))
-    publisher.verify_inventory(assets, {POINTER: publisher.metadata(path, POINTER_TAG)}, POINTER_TAG)
-    return json.loads(path.read_text())
+    document = publisher.read_verified_pointer(github, directory, POINTER_TAG, POINTER)
+    return None if document is None else validate_pointer(document)
 
 
 def due(catalog, pointer):
