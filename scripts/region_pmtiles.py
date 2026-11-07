@@ -12,11 +12,11 @@ from collections import defaultdict
 import contextlib
 import copy
 import gzip
-import hashlib
 import json
 import math
 import mmap
 from pathlib import Path
+from publish_map_data import digest as sha256
 
 BASE_MAX_ZOOM = 9
 DETAIL_MIN_ZOOM = 10
@@ -149,12 +149,6 @@ def deterministic_gzip():
         gzip.compress = original
 
 
-def sha256(path):
-    h = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            h.update(block)
-    return h.hexdigest()
 
 
 def build(source, destination, max_bytes=DEFAULT_MAX_BYTES, pilot=None, dry_run=False,

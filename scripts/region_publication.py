@@ -13,11 +13,11 @@ The phone trusts regional-manifest.json only through the release manifest's
 SHA-256 (itself pinned by latest.json), the same chain as every other asset.
 """
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import re
 import shutil
+from publish_map_data import digest
 
 BASE_ASSET = "regional-base.pmtiles"
 MANIFEST = "regional-manifest.json"
@@ -28,12 +28,6 @@ MAX_DETAIL_BYTES = 200_000_000
 MAX_ASSET_BYTES = 1_950_000_000
 
 
-def digest(path):
-    h = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            h.update(block)
-    return h.hexdigest()
 
 
 def asset_name(package):

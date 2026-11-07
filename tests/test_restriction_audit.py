@@ -5,13 +5,9 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
 from restriction_audit import audit, parse_relation
+from test_restriction_acceptance import way
 
 
-def way(ident, refs, **tags):
-    parts = {"highway": "residential", **tags}
-    return "w%d T%s N%s\n" % (
-        ident, ",".join(f"{k}={v}" for k, v in parts.items()),
-        ",".join("n%d" % n for n in refs))
 
 
 def rel(ident, members, **tags):

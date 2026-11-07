@@ -14,6 +14,7 @@ import math
 from pathlib import Path
 import tempfile
 import sys
+from publish_map_data import digest
 
 MAX_RECORD_BYTES = 64 * 1024 * 1024
 MAX_FEATURE_CELLS = 256
@@ -28,12 +29,6 @@ def pack_name(cell):
     return "feature-packs-global.jsonl.gz" if cell is None else f"feature-packs-{cell[0]}_{cell[1]}.jsonl.gz"
 
 
-def digest(path):
-    value = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b""):
-            value.update(block)
-    return value.hexdigest()
 
 
 def _positions(geometry):

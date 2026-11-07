@@ -32,12 +32,12 @@ and the relation is skipped). The report's ``split_ways`` maps new IDs to OSM wa
 """
 import argparse
 from dataclasses import dataclass
-import hashlib
 import json
 import math
 from pathlib import Path
 import re
 import sys
+from publish_map_data import digest as sha256
 
 ID_BASE = 9_000_000_000_000  # far above any OSM relation ID; checked against the input
 WAY_ID_BASE = 9_000_000_000_000  # split-off way parts (routing copy only); checked against the input
@@ -445,12 +445,6 @@ def rewrite(relations, ways, coords, max_relation_id=0, id_base=ID_BASE, **kwarg
 
 # --------------------------------------------------------------------------- PBF I/O (pyosmium)
 
-def sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def read_inputs(pbf):
