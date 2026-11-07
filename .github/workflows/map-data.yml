@@ -390,7 +390,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          pip install -q pyproj shapely
+          pip install -q pyproj==3.8.0 shapely==2.2.0
           python3 scripts/zones.py --selftest
           osmium tags-filter work/base.osm.pbf r/boundary=low_emission_zone w/boundary=low_emission_zone \
             -o work/zones.osm.pbf --overwrite
@@ -421,7 +421,7 @@ jobs:
 
       - name: Businesses, places and streets (Overture + OpenStreetMap + OS Open Names), merged, in squares
         run: |
-          pip install -q overturemaps pyarrow pyproj
+          pip install -q overturemaps pyarrow pyproj==3.8.0
           mkdir -p out/places work/osnames
           # Overture (businesses). Resolve the latest release first and download exactly that
           # release, so places-provenance.json can name it. If it cannot be resolved (or this
