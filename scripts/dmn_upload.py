@@ -50,12 +50,6 @@ class DmnGitHub(publisher.GitHub):
                  '--title', f'DMN road pieces (UK) {tag}', '--notes', NOTES, '--latest=false')
         return self.release(tag)
 
-    def delete(self, asset):
-        asset_id = asset.get('id')
-        if type(asset_id) is not int or asset_id <= 0:
-            raise ValueError('Invalid asset ID')
-        self.run('api', '-X', 'DELETE', f'repos/{self.repo}/releases/assets/{asset_id}')
-
 
 def _ensure(github, tag, waits):
     for attempt in range(waits + 1):

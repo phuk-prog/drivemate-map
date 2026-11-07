@@ -23,6 +23,8 @@ import re
 import shutil
 import subprocess
 import sys
+
+from restriction_rewrite import bearing
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -59,12 +61,6 @@ def haversine(a, b):
     return 2 * 6371008.8 * math.asin(min(1.0, math.sqrt(h)))
 
 
-def bearing(a, b):
-    la1, la2 = math.radians(a[0]), math.radians(b[0])
-    dlon = math.radians(b[1] - a[1])
-    y = math.sin(dlon) * math.cos(la2)
-    x = math.cos(la1) * math.sin(la2) - math.sin(la1) * math.cos(la2) * math.cos(dlon)
-    return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
 
 
 def angle_between(h1, h2):
