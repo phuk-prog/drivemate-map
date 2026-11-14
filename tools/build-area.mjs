@@ -161,7 +161,9 @@ function centroidPoint(parts) {
 }
 
 // osmName: which data/osm-cache/*/<osmName>.json to read (a grid square uses its region's caches).
-export async function buildArea({ name, bbox, zoom, version, osmName = name, log = console.log }) {
+// joinRoads: false skips the junction joining (joinCrossings, joinRoadEnds). Used for the basic world layer,
+// whose whole-world grid is too large for one pass. Roads then meet only where their own points coincide.
+export async function buildArea({ name, bbox, zoom, version, osmName = name, joinRoads = true, log = console.log }) {
   const cacheRoot = join(ROOT, "data", "cache", version);
   const tiles = tilesForBbox(bbox, zoom);
   const nodes = new NodeIndex();
@@ -319,8 +321,8 @@ export async function buildArea({ name, bbox, zoom, version, osmName = name, log
   // Make every junction a node, so roads that meet mid-line can be routed across.
   // Roads that cross in the middle get a junction at the crossing point, and road ends that
   // stop short of another road's middle are joined to it.
-  const crossed = joinCrossings(edges);
-  const ended = joinRoadEnds(crossed.edges);
+  const crossed = joinRoads ? joinCrossings(edges) : { edges };
+  const ended = joinRoads ? joinRoadEnds(crossed.edges) : { edges: crossed.edges };
   const repaired = dropDuplicateEdges(splitAtSharedVertices(ended.edges));
   let roundaboutWays=[];
   try{

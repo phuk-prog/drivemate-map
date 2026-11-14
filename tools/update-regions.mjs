@@ -38,7 +38,7 @@ console.log(`source version ${version}`);
 
 // A region or square area may carry "osm": { "geofabrik": "<extract id>" } to add turn restrictions, lanes
 // and warnings from that Geofabrik extract. "enabled": false keeps an entry out of every run.
-const builderFor = (r) => (r.osm ? `${BUILDER_VERSION}+osm1` : BUILDER_VERSION);
+const builderFor = (r) => (r.basic ? `${BUILDER_VERSION}+basic` : r.osm ? `${BUILDER_VERSION}+osm1` : BUILDER_VERSION);
 
 let built = 0;
 for (const region of regions) {
@@ -64,7 +64,8 @@ for (const region of regions) {
   console.log(`${region.id}: ${previous ? "source changed, rebuilding" : "new region, building"}`);
   if (region.osm) await prepareOsm({ geofabrik: region.osm.geofabrik, name: region.id, bbox: region.bbox });
   await fetchTiles(region.bbox, region.zoom, { log: () => {} });
-  await buildArea({ name: region.id, bbox: region.bbox, zoom: region.zoom, version, log: () => {} });
+  // A basic region skips junction joining (see buildArea); its routing is not used.
+  await buildArea({ name: region.id, bbox: region.bbox, zoom: region.zoom, version, joinRoads: !region.basic, log: () => {} });
   await copyFile(join(ROOT, "data", "out", `${region.id}.dmap`), out);
   index[region.id] = {
     version,

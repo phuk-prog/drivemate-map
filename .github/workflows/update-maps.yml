@@ -25,6 +25,15 @@ jobs:
         with:
           node-version: 22
 
+      # OSM caches (restrictions, lanes, speed, warnings) are small, and rebuilding them needs the whole extract.
+      # Restore the latest copy; tools/osm-prepare.mjs skips the download when the extract has not changed.
+      - name: Restore OSM caches
+        uses: actions/cache@v4
+        with:
+          path: data/osm-cache
+          key: osm-cache-${{ github.run_id }}
+          restore-keys: osm-cache-
+
       - name: Build new and changed regions
         env:
           MAX_REGIONS_PER_RUN: "2"
@@ -52,23 +61,13 @@ jobs:
           shopt -s nullglob   # no square built in this run: the loop does nothing, instead of failing on the literal pattern
           for f in data/published/squares/*.dmap; do gzip -9 -c "$f" > "$f.gz"; done
 
-      - name: Publish map files to the maps-latest release
+      - name: Publish map files to their releases
         if: steps.changes.outputs.changed == 'true' && github.ref_name == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # Only files that exist are passed to gh, so no literal glob reaches it. Nothing found fails here, before any push.
-          shopt -s nullglob
-          files=(data/published/*.dmap data/published/squares/*.dmap data/published/squares/*.dmap.gz)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::No map files found to upload. The index has not been pushed." >&2
-            exit 1
-          fi
-          echo "Uploading ${#files[@]} file(s) to maps-latest"
-          gh release view maps-latest >/dev/null 2>&1 || \
-            gh release create maps-latest --title "Drivemate map regions (latest)" \
-              --notes "Automatically updated map regions. Each file replaces the previous version." --latest=false
-          gh release upload maps-latest "${files[@]}" --clobber
+        # Region files go to maps-latest; square files go to the squares-NNN release in their index entry.
+        # Nothing is uploaded if no file is found, or if a release would exceed GitHub's asset limit.
+        run: node tools/publish-releases.mjs
 
       # Runs only after the upload above has succeeded. A failed build, test, compress or upload stops the
       # job before this step, so the index on the branch never names files the release does not have.
