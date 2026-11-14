@@ -1,7 +1,7 @@
 {
   "lat1066_lon-45": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.25,
@@ -11,11 +11,11 @@
     ],
     "bytes": 1067246,
     "gzBytes": 600096,
-    "builtAt": "2026-11-13T22:15:06.328Z"
+    "builtAt": "2026-11-14T18:44:49.545Z"
   },
   "lat1066_lon-44": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.2,
@@ -25,11 +25,11 @@
     ],
     "bytes": 764138,
     "gzBytes": 447407,
-    "builtAt": "2026-11-13T22:15:07.003Z"
+    "builtAt": "2026-11-14T18:44:49.782Z"
   },
   "lat1066_lon-43": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.15,
@@ -39,11 +39,11 @@
     ],
     "bytes": 668549,
     "gzBytes": 374069,
-    "builtAt": "2026-11-13T22:15:07.406Z"
+    "builtAt": "2026-11-14T18:44:49.962Z"
   },
   "lat1066_lon-42": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.1,
@@ -53,11 +53,11 @@
     ],
     "bytes": 500568,
     "gzBytes": 280287,
-    "builtAt": "2026-11-13T22:15:07.757Z"
+    "builtAt": "2026-11-14T18:44:50.109Z"
   },
   "lat1067_lon-45": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.25,
@@ -67,11 +67,11 @@
     ],
     "bytes": 1590324,
     "gzBytes": 849558,
-    "builtAt": "2026-11-13T22:15:08.208Z"
+    "builtAt": "2026-11-14T18:44:50.474Z"
   },
   "lat1067_lon-44": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.2,
@@ -81,11 +81,11 @@
     ],
     "bytes": 3476231,
     "gzBytes": 1649413,
-    "builtAt": "2026-11-13T22:15:09.421Z"
+    "builtAt": "2026-11-14T18:44:51.543Z"
   },
   "lat1067_lon-43": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.15,
@@ -95,11 +95,11 @@
     ],
     "bytes": 1547923,
     "gzBytes": 768996,
-    "builtAt": "2026-11-13T22:15:09.985Z"
+    "builtAt": "2026-11-14T18:44:52.004Z"
   },
   "lat1067_lon-42": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.1,
@@ -109,11 +109,11 @@
     ],
     "bytes": 998668,
     "gzBytes": 545525,
-    "builtAt": "2026-11-13T22:15:10.441Z"
+    "builtAt": "2026-11-14T18:44:52.210Z"
   },
   "lat1068_lon-45": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.25,
@@ -123,11 +123,11 @@
     ],
     "bytes": 3339759,
     "gzBytes": 1586520,
-    "builtAt": "2026-11-13T22:15:11.171Z"
+    "builtAt": "2026-11-14T18:44:52.822Z"
   },
   "lat1068_lon-44": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.2,
@@ -137,11 +137,11 @@
     ],
     "bytes": 5102488,
     "gzBytes": 2396994,
-    "builtAt": "2026-11-13T22:15:12.791Z"
+    "builtAt": "2026-11-14T18:44:54.106Z"
   },
   "lat1068_lon-43": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.15,
@@ -151,11 +151,11 @@
     ],
     "bytes": 1978406,
     "gzBytes": 978967,
-    "builtAt": "2026-11-13T22:15:13.421Z"
+    "builtAt": "2026-11-14T18:44:54.709Z"
   },
   "lat1068_lon-42": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.1,
@@ -165,11 +165,11 @@
     ],
     "bytes": 1126308,
     "gzBytes": 603091,
-    "builtAt": "2026-11-13T22:15:13.920Z"
+    "builtAt": "2026-11-14T18:44:54.960Z"
   },
   "lat1069_lon-45": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.25,
@@ -179,11 +179,11 @@
     ],
     "bytes": 4423971,
     "gzBytes": 2126032,
-    "builtAt": "2026-11-13T22:15:15.444Z"
+    "builtAt": "2026-11-14T18:44:56.339Z"
   },
   "lat1069_lon-44": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.2,
@@ -193,11 +193,11 @@
     ],
     "bytes": 2354201,
     "gzBytes": 1204093,
-    "builtAt": "2026-11-13T22:15:16.379Z"
+    "builtAt": "2026-11-14T18:44:56.907Z"
   },
   "lat1069_lon-43": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.15,
@@ -207,11 +207,11 @@
     ],
     "bytes": 1161023,
     "gzBytes": 619747,
-    "builtAt": "2026-11-13T22:15:16.962Z"
+    "builtAt": "2026-11-14T18:44:57.221Z"
   },
   "lat1069_lon-42": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.1,
@@ -221,6 +221,6 @@
     ],
     "bytes": 1126268,
     "gzBytes": 606428,
-    "builtAt": "2026-11-13T22:15:17.490Z"
+    "builtAt": "2026-11-14T18:44:57.595Z"
   }
 }

@@ -1,7 +1,7 @@
 {
   "stockport": {
     "version": "20261101_080013_pt",
-    "builder": "graph-repair-4",
+    "builder": "graph-repair-5-roundabouts",
     "zoom": 14,
     "bbox": [
       -2.25,
@@ -11,6 +11,6 @@
     ],
     "url": "https://github.com/phuk-prog/Drivemate-map/releases/download/maps-latest/stockport.dmap",
     "bytes": 12175550,
-    "builtAt": "2026-11-13T22:15:05.718Z"
+    "builtAt": "2026-11-14T18:44:49.195Z"
   }
 }
